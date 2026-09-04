@@ -47,7 +47,11 @@
             {
                 "command": "sqlite.explorer.add",
                 "title": "Open Database",
-                "category": "SQLite"
+                "category": "SQLite",
+                "icon": {
+                    "light": "resources/light/add.svg",
+                    "dark": "resources/dark/add.svg"
+                }
             },
             {
                 "command": "sqlite.explorer.remove",
@@ -317,6 +321,11 @@
             ],
             "view/title": [
                 {
+                    "command": "sqlite.explorer.add",
+                    "when": "view == sqlite.explorer",
+                    "group": "navigation@0"
+                },
+                {
                     "command": "sqlite.newQuery",
                     "when": "view == sqlite.explorer",
                     "group": "navigation@1"
@@ -328,6 +337,11 @@
                 }
             ],
             "view/item/context": [
+                {
+                    "command": "sqlite.explorer.add",
+                    "when": "view == sqlite.explorer && viewItem == sqlite.databaseItem",
+                    "group": "0_add@1"
+                },
                 {
                     "command": "sqlite.newQuery",
                     "when": "view == sqlite.explorer && viewItem == sqlite.databaseItem",
