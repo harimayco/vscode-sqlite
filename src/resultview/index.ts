@@ -10,9 +10,20 @@ interface InsertQuickPickItem extends QuickPickItem {
     multiValue: boolean;
 }
 
+interface QueryTabRecord {
+    queryId: string;
+    title: string;
+    statement: string;
+    timestamp: string;
+    results: any[];
+}
+
 export default class ResultView extends CustomView implements Disposable {
 
     private resultSet?: ResultSet;
+    private queryResults: Map<string, ResultSet> = new Map();
+    private queryTabs: QueryTabRecord[] = [];
+    private queryCounter: number = 0;
     private msgQueue: Message[];
 
     constructor(private extensionPath: string) {
@@ -27,11 +38,51 @@ export default class ResultView extends CustomView implements Disposable {
         this.msgQueue = [];
         
         resultSet.then(rs => {
-            this.resultSet = rs? rs : [];
-            const results = this.resultSet? this.resultSet : [];
-            this.send({type: "FETCH_RESULTS", payload: results.map((result, idx) => (
-                {statement: result.stmt, columns: result.header, size: result.rows.length, rows: {rows: result.rows.slice(0, recordsPerPage), offset: 0, limit: recordsPerPage, result: idx}}
-            ))});
+            const results = rs? rs : [];
+            this.resultSet = results;
+            
+            const queryId = `q_${Date.now()}_${++this.queryCounter}`;
+            this.queryResults.set(queryId, results);
+
+            let statement = "";
+            let title = `Query ${this.queryCounter}`;
+            if (results.length > 0 && results[0].stmt) {
+                statement = results[0].stmt;
+                const cleanStmt = statement.replace(/[\r\n\t]+/g, " ").trim();
+                const shortStmt = cleanStmt.length > 25 ? cleanStmt.substring(0, 25) + "…" : cleanStmt;
+                title = `#${this.queryCounter}: ${shortStmt}`;
+            }
+
+            const now = new Date();
+            const pad = (n: number) => ("0" + n).slice(-2);
+            const timestamp = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+            const resultsData = results.map((result, idx) => ({
+                statement: result.stmt,
+                columns: result.header,
+                size: result.rows.length,
+                rows: {
+                    rows: result.rows.slice(0, recordsPerPage),
+                    offset: 0,
+                    limit: recordsPerPage,
+                    result: idx,
+                    queryId
+                }
+            }));
+
+            const tabRecord: QueryTabRecord = {
+                queryId,
+                title,
+                statement,
+                timestamp,
+                results: resultsData
+            };
+            this.queryTabs.push(tabRecord);
+
+            this.send({
+                type: "FETCH_RESULTS",
+                payload: tabRecord
+            });
             if (this.msgQueue) this.msgQueue.forEach(this.handleMessage.bind(this));
         });
     }
@@ -46,27 +97,69 @@ export default class ResultView extends CustomView implements Disposable {
             return;
         }
 
-        if (!this.resultSet) {
+        if (message.type === "CLOSE_QUERY") {
+            const qId = message.payload && message.payload.queryId;
+            if (qId) {
+                this.queryResults.delete(qId);
+                this.queryTabs = this.queryTabs.filter(t => t.queryId !== qId);
+            }
+            return;
+        }
+
+        if (message.type === "CLEAR_ALL_QUERIES") {
+            this.queryResults.clear();
+            this.queryTabs = [];
+            this.resultSet = undefined;
+            return;
+        }
+
+        if (!this.resultSet && this.queryResults.size === 0) {
             this.msgQueue.push(message);
             return;
         }
+
         switch(message.type) {
             case "FETCH_RESULTS": {
-                const results = this.resultSet? this.resultSet : [];
-                this.send({type: "FETCH_RESULTS", payload: results.map(result => (
-                    {statement: result.stmt, columns: result.header, size: result.rows.length}
-                ))});
+                if (this.queryTabs && this.queryTabs.length > 0) {
+                    this.send({
+                        type: "RESTORE_QUERY_TABS",
+                        payload: this.queryTabs
+                    });
+                } else {
+                    const results = this.resultSet ? this.resultSet : [];
+                    this.send({
+                        type: "FETCH_RESULTS",
+                        payload: results.map(result => ({
+                            statement: result.stmt,
+                            columns: result.header,
+                            size: result.rows.length
+                        }))
+                    });
+                }
                 break;
             }
             case "FETCH_ROWS": {
-                const result = this.resultSet? this.resultSet[message.payload.result] : null;
+                const queryId = message.payload ? message.payload.queryId : undefined;
+                const rs = queryId && this.queryResults.has(queryId) ? this.queryResults.get(queryId) : this.resultSet;
+                const result = rs ? rs[message.payload.result] : null;
                 const fromRow = message.payload.offset;
                 const toRow = fromRow + message.payload.limit;
-                this.send({type: "FETCH_ROWS", payload: {result: message.payload.result, rows: result!.rows.slice(fromRow, toRow), offset: fromRow, limit: message.payload.limit}});
+                this.send({
+                    type: "FETCH_ROWS",
+                    payload: {
+                        queryId,
+                        result: message.payload.result,
+                        rows: result ? result.rows.slice(fromRow, toRow) : [],
+                        offset: fromRow,
+                        limit: message.payload.limit
+                    }
+                });
                 break;
             }
             case "EXPORT_RESULTS": {
-                const obj = typeof message.payload.result === "number" ? this.resultSet![message.payload.result] : this.resultSet;
+                const queryId = message.payload ? message.payload.queryId : undefined;
+                const rs = queryId && this.queryResults.has(queryId) ? this.queryResults.get(queryId) : this.resultSet;
+                const obj = typeof message.payload.result === "number" ? rs![message.payload.result] : rs;
                 if (!obj) {
                     break;
                 }

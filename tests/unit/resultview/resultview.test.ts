@@ -214,4 +214,83 @@ describe("ResultView Export & Display", () => {
         expect(mockWebviewView.show).toHaveBeenCalledWith(true);
         expect(mockWebviewView.webview.html).toContain("const RECORDS_PER_PAGE=50");
     });
+
+    test("manages multiple query tabs and scopes FETCH_ROWS and EXPORT_RESULTS to queryId", async () => {
+        const mockSend = jest.fn();
+        (resultView as any).send = mockSend;
+        (resultView as any).show = jest.fn();
+
+        const rs1: Result[] = [{
+            stmt: "SELECT * FROM users;",
+            header: ["id", "name"],
+            rows: [["1", "Alice"], ["2", "Bob"]]
+        }];
+        const rs2: Result[] = [{
+            stmt: "SELECT * FROM products;",
+            header: ["id", "item"],
+            rows: [["10", "Laptop"], ["20", "Phone"]]
+        }];
+
+        // Execute query 1
+        resultView.display(Promise.resolve(rs1), 50, "bottom");
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        expect(mockSend).toHaveBeenCalledWith(expect.objectContaining({
+            type: "FETCH_RESULTS",
+            payload: expect.objectContaining({
+                title: expect.stringContaining("users"),
+                statement: "SELECT * FROM users;"
+            })
+        }));
+
+        const q1Id = mockSend.mock.calls[0][0].payload.queryId;
+
+        // Execute query 2
+        resultView.display(Promise.resolve(rs2), 50, "bottom");
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        expect(mockSend).toHaveBeenCalledWith(expect.objectContaining({
+            type: "FETCH_RESULTS",
+            payload: expect.objectContaining({
+                title: expect.stringContaining("products"),
+                statement: "SELECT * FROM products;"
+            })
+        }));
+
+        const q2Id = mockSend.mock.calls[1][0].payload.queryId;
+        expect(q1Id).not.toEqual(q2Id);
+
+        // Fetch rows for Query 1
+        (resultView as any).handleMessage({
+            type: "FETCH_ROWS",
+            payload: { queryId: q1Id, result: 0, offset: 0, limit: 1 }
+        });
+
+        expect(mockSend).toHaveBeenCalledWith({
+            type: "FETCH_ROWS",
+            payload: {
+                queryId: q1Id,
+                result: 0,
+                rows: [["1", "Alice"]],
+                offset: 0,
+                limit: 1
+            }
+        });
+
+        // Close query 1
+        (resultView as any).handleMessage({
+            type: "CLOSE_QUERY",
+            payload: { queryId: q1Id }
+        });
+        expect((resultView as any).queryResults.has(q1Id)).toBe(false);
+        expect((resultView as any).queryResults.has(q2Id)).toBe(true);
+
+        // Clear all queries
+        (resultView as any).handleMessage({
+            type: "CLEAR_ALL_QUERIES"
+        });
+        expect((resultView as any).queryResults.size).toBe(0);
+        expect((resultView as any).queryTabs.length).toBe(0);
+    });
 });
+

@@ -14,6 +14,7 @@ export class CustomView extends EventEmitter implements Disposable, WebviewViewP
     private panel: WebviewPanel | undefined;
     private webviewView: WebviewView | undefined;
     private pendingRender?: (wv: WebviewView) => void;
+    private isHtmlLoaded: boolean = false;
 
     constructor(private type: string, private title: string, extensionPath: string = "") {
         super();
@@ -37,6 +38,7 @@ export class CustomView extends EventEmitter implements Disposable, WebviewViewP
 
         webviewView.onDidDispose(() => {
             this.webviewView = undefined;
+            this.isHtmlLoaded = false;
         });
 
         if (this.pendingRender) {
@@ -70,7 +72,10 @@ export class CustomView extends EventEmitter implements Disposable, WebviewViewP
 
             const render = (wv: WebviewView) => {
                 wv.show(true);
-                wv.webview.html = buildHtml(wv.webview);
+                if (!this.isHtmlLoaded) {
+                    wv.webview.html = buildHtml(wv.webview);
+                    this.isHtmlLoaded = true;
+                }
             };
 
             if (this.webviewView) {
@@ -89,15 +94,19 @@ export class CustomView extends EventEmitter implements Disposable, WebviewViewP
                         if (!this.panel) {
                             this.init("beside");
                         }
-                        this.panel!.webview.html = buildHtml(this.panel!.webview);
+                        if (!this.isHtmlLoaded) {
+                            this.panel!.webview.html = buildHtml(this.panel!.webview);
+                            this.isHtmlLoaded = true;
+                        }
                     }
                 }, 400);
             }
         } else {
             if (!this.panel) {
                 this.init(position);
+                this.panel!.webview.html = buildHtml(this.panel!.webview);
+                this.isHtmlLoaded = true;
             }
-            this.panel!.webview.html = buildHtml(this.panel!.webview);
         }
     }
 
@@ -121,6 +130,7 @@ export class CustomView extends EventEmitter implements Disposable, WebviewViewP
         this.panel = undefined;
         this.webviewView = undefined;
         this.pendingRender = undefined;
+        this.isHtmlLoaded = false;
     }
 
     private init(position: string = "beside") {
