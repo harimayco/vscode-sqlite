@@ -8,6 +8,26 @@ on:
         required: true
         default: 'master'
         type: string
+      tag_name:
+        description: 'Tag name for release (leave empty for auto: v<version> or v<version>-<branch>)'
+        required: false
+        default: ''
+        type: string
+      release_title:
+        description: 'Release title (leave empty for auto: Release <tag>)'
+        required: false
+        default: ''
+        type: string
+      prerelease:
+        description: 'Mark this release as a pre-release'
+        required: false
+        default: false
+        type: boolean
+      draft:
+        description: 'Create release as a draft'
+        required: false
+        default: false
+        type: boolean
       run_tests:
         description: 'Run unit tests before packaging'
         required: false
@@ -16,8 +36,10 @@ on:
 
 jobs:
   build-vsix:
-    name: Build VSIX Package
+    name: Build & Release VSIX Package
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     env:
       NODE_OPTIONS: "--openssl-legacy-provider"
@@ -47,17 +69,47 @@ jobs:
       - name: Package VSIX
         run: npm run package
 
-      - name: Extract metadata
+      - name: Extract metadata & determine tag
         id: meta
         run: |
           VERSION=$(node -p "require('./package.json').version")
           SAFE_BRANCH=$(echo "${{ inputs.branch }}" | tr '/' '-')
+
+          if [ -n "${{ inputs.tag_name }}" ]; then
+            TAG_NAME="${{ inputs.tag_name }}"
+          elif [ "${{ inputs.branch }}" = "master" ] || [ "${{ inputs.branch }}" = "main" ]; then
+            TAG_NAME="v${VERSION}"
+          else
+            TAG_NAME="v${VERSION}-${SAFE_BRANCH}"
+          fi
+
+          if [ -n "${{ inputs.release_title }}" ]; then
+            RELEASE_TITLE="${{ inputs.release_title }}"
+          else
+            RELEASE_TITLE="Release ${TAG_NAME}"
+          fi
+
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "safe_branch=$SAFE_BRANCH" >> $GITHUB_OUTPUT
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "release_title=$RELEASE_TITLE" >> $GITHUB_OUTPUT
 
-      - name: Upload VSIX artifact
+      - name: Upload VSIX artifact to workflow
         uses: actions/upload-artifact@v4
         with:
           name: vscode-sqlite-${{ steps.meta.outputs.safe_branch }}-v${{ steps.meta.outputs.version }}
           path: "*.vsix"
           if-no-files-found: error
+
+      - name: Create GitHub Release & Tag with VSIX
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          name: ${{ steps.meta.outputs.release_title }}
+          target_commitish: ${{ inputs.branch }}
+          files: "*.vsix"
+          draft: ${{ inputs.draft }}
+          prerelease: ${{ inputs.prerelease }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
