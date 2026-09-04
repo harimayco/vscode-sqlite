@@ -16,6 +16,7 @@ interface Props {
         offset: number;
         limit: number;
         onPage?: (offset: number, limit: number) => void;
+        onChangeLimit?: (limit: number, saveAsDefault?: boolean) => void;
     };
     onToggleHidden: () => void;
     onExport: (format: "csv"|"html"|"json"|"sql") => void;

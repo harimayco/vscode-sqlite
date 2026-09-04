@@ -195,6 +195,23 @@ describe("ResultView Export & Display", () => {
         expect(vscode.window.setStatusBarMessage).toHaveBeenCalledWith("Copied to clipboard.", 2000);
     });
 
+    test("updates sqlite configuration and shows status message on UPDATE_CONFIG message", () => {
+        const mockUpdate = jest.fn();
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            update: mockUpdate
+        });
+        (vscode.window.setStatusBarMessage as jest.Mock) = jest.fn();
+
+        (resultView as any).handleMessage({
+            type: "UPDATE_CONFIG",
+            payload: { recordsPerPage: 100 }
+        });
+
+        expect(vscode.workspace.getConfiguration).toHaveBeenCalledWith("sqlite");
+        expect(mockUpdate).toHaveBeenCalledWith("recordsPerPage", 100, true);
+        expect(vscode.window.setStatusBarMessage).toHaveBeenCalledWith("SQLite: Records per page set to 100", 3000);
+    });
+
     test("resolves WebviewView and handles pending render", () => {
         const mockWebviewView: any = {
             webview: {

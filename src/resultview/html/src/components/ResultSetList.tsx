@@ -6,6 +6,7 @@ interface Props {
     list: Array<ResultSetData>;
     onExport: (format: string, result: number, rows?: (string | number)[][]) => void;
     onRows: (offset: number, limit: number, result: number) => void;
+    onChangeLimit?: (limit: number, result: number, saveAsDefault?: boolean) => void;
     onCopy?: (text: string) => void;
 }
 
@@ -17,6 +18,7 @@ const ResultSetList: React.FunctionComponent<Props> = (props) => {
                     key={index} {...item}
                     onExport={(format, rows) => props.onExport(format, index, rows)}
                     onRows={(offset, limit) => props.onRows(offset, limit, index)}
+                    onChangeLimit={(limit, saveAsDefault) => props.onChangeLimit && props.onChangeLimit(limit, index, saveAsDefault)}
                     onCopy={props.onCopy}
                 />
             ))}

@@ -62,6 +62,13 @@ export class Api {
         });
     }
 
+    updateConfig(config: { recordsPerPage: number }) {
+        this.vscodeApi.postMessage({
+            type: "UPDATE_CONFIG",
+            payload: config,
+        });
+    }
+
     copyToClipboard(text: string) {
         this.vscodeApi.postMessage({
             type: "COPY_TO_CLIPBOARD",

@@ -4,6 +4,8 @@ import { Api, QueryResultPayload, RowsData } from "../api";
 import TabBar, { QueryTabItem } from "./TabBar";
 import ResultSetList from "./ResultSetList";
 
+import ConfigModal from "./ConfigModal";
+
 interface Props {
     api: Api;
 }
@@ -11,6 +13,7 @@ interface Props {
 interface State {
     tabs: Array<QueryTabItem>;
     activeTabId: string;
+    showGlobalConfig: boolean;
 }
 
 class App extends React.Component<Props, State> {
@@ -19,7 +22,8 @@ class App extends React.Component<Props, State> {
         super(props);
         this.state = {
             tabs: [],
-            activeTabId: ""
+            activeTabId: "",
+            showGlobalConfig: false,
         };
     }
 
@@ -74,6 +78,8 @@ class App extends React.Component<Props, State> {
 
     render() {
         const activeTab = this.state.tabs.find(t => t.id === this.state.activeTabId);
+        const currentLimit = activeTab && activeTab.results[0] && activeTab.results[0].rows ? activeTab.results[0].rows.limit : 50;
+        const totalRecords = activeTab ? activeTab.results.reduce((s, r) => s + (r.size || 0), 0) : undefined;
 
         return (
             <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%" }}>
@@ -86,6 +92,7 @@ class App extends React.Component<Props, State> {
                     onSelectTab={this.handleSelectTab.bind(this)}
                     onCloseTab={this.handleCloseTab.bind(this)}
                     onClearAll={this.handleClearAll.bind(this)}
+                    onOpenConfig={() => this.setState({ showGlobalConfig: true })}
                     onExport={this.handleExport.bind(this)}
                 />
                 {activeTab ? (
@@ -94,6 +101,7 @@ class App extends React.Component<Props, State> {
                         list={activeTab.results}
                         onExport={this.handleExport.bind(this)}
                         onRows={this.handleRows.bind(this)}
+                        onChangeLimit={this.handleChangeLimit.bind(this)}
                         onCopy={this.handleCopy.bind(this)}
                     />
                 ) : (
@@ -107,6 +115,15 @@ class App extends React.Component<Props, State> {
                         </div>
                     </div>
                 )}
+                <ConfigModal
+                    isOpen={this.state.showGlobalConfig}
+                    currentLimit={currentLimit}
+                    totalRecords={totalRecords}
+                    onClose={() => this.setState({ showGlobalConfig: false })}
+                    onApply={(newLimit, saveAsDefault) => {
+                        this.handleChangeLimit(newLimit, undefined, saveAsDefault);
+                    }}
+                />
             </div>
         );
     }
@@ -151,6 +168,22 @@ class App extends React.Component<Props, State> {
     private handleRows(offset: number, limit: number, index: number) {
         const activeTab = this.state.tabs.find(t => t.id === this.state.activeTabId);
         this.props.api.fetchRows(index, offset, limit, activeTab ? activeTab.id : undefined);
+    }
+
+    private handleChangeLimit(limit: number, resultIndex?: number, saveAsDefault: boolean = false) {
+        const activeTab = this.state.tabs.find(t => t.id === this.state.activeTabId);
+        if (activeTab) {
+            if (typeof resultIndex === "number") {
+                this.props.api.fetchRows(resultIndex, 0, limit, activeTab.id);
+            } else {
+                activeTab.results.forEach((_, idx) => {
+                    this.props.api.fetchRows(idx, 0, limit, activeTab.id);
+                });
+            }
+        }
+        if (saveAsDefault) {
+            this.props.api.updateConfig({ recordsPerPage: limit });
+        }
     }
 }
 

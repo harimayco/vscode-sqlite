@@ -6,6 +6,7 @@ import { ResultSetData } from "../api";
 interface Props  extends ResultSetData {
     onExport: (format: string, rows?: (string | number)[][]) => void;
     onRows: (offset: number, limit: number) => void;
+    onChangeLimit?: (limit: number, saveAsDefault?: boolean) => void;
     onCopy?: (text: string) => void;
 }
 
@@ -22,11 +23,18 @@ class ResultSet extends React.Component<Props, State> {
     }
 
     render() {
+        const currentLimit = (this.props.rows && this.props.rows.limit) || (typeof RECORDS_PER_PAGE !== "undefined" ? RECORDS_PER_PAGE : 20);
         return (
             <div style={styles.resultSet}>
                 <ResultSetHeader
                     statement={this.props.statement}
-                    pager={{total: this.props.size, offset: this.props.rows.offset, limit: RECORDS_PER_PAGE, onPage: this.props.onRows}}
+                    pager={{
+                        total: this.props.size,
+                        offset: this.props.rows.offset,
+                        limit: currentLimit,
+                        onPage: this.props.onRows,
+                        onChangeLimit: this.props.onChangeLimit,
+                    }}
                     showStatement={this.state.showStatement}
                     onToggleHidden={this.handleToggleShowTable.bind(this)}
                     onSql={this.handleToggleShowStatement.bind(this)}

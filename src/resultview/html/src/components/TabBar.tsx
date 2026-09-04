@@ -1,5 +1,6 @@
 import * as React from "react";
 import { ResultSetData } from "../api";
+import { Icons } from "./Base";
 import BtnExportCsv from "./BtnExportCsv";
 import BtnExportHtml from "./BtnExportHtml";
 import BtnExportJson from "./BtnExportJson";
@@ -19,6 +20,7 @@ interface Props {
     onSelectTab: (tabId: string) => void;
     onCloseTab: (tabId: string) => void;
     onClearAll: () => void;
+    onOpenConfig?: () => void;
     onExport: (format: "csv" | "html" | "json" | "sql") => void;
 }
 
@@ -71,6 +73,16 @@ const TabBar: React.FunctionComponent<Props> = (props) => {
 
             {props.tabs.length > 0 && (
                 <div style={styles.actions}>
+                    {props.onOpenConfig && (
+                        <button
+                            type="button"
+                            style={styles.configBtn}
+                            onClick={props.onOpenConfig}
+                            title="Configure Pagination Limit"
+                        >
+                            <Icons.Gear />
+                        </button>
+                    )}
                     <button
                         style={styles.clearBtn}
                         onClick={props.onClearAll}
@@ -181,6 +193,19 @@ const styles: { [prop: string]: React.CSSProperties } = {
         flexShrink: 0,
         backgroundColor: "var(--vscode-editorGroupHeader-tabsBackground, #252526)",
         borderLeft: "1px solid var(--vscode-tab-border, rgba(128, 128, 128, 0.2))",
+    },
+    configBtn: {
+        background: "transparent",
+        border: "none",
+        color: "var(--vscode-editor-foreground, #cccccc)",
+        cursor: "pointer",
+        padding: "3px 4px",
+        marginRight: "4px",
+        borderRadius: "3px",
+        outline: "none",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
     },
     clearBtn: {
         background: "transparent",

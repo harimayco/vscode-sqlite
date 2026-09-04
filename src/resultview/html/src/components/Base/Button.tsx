@@ -6,6 +6,7 @@ interface Props {
     width?: string | number;
     height?: string | number;
     background?: string;
+    disabled?: boolean;
     onClick?: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
 }
 
@@ -13,10 +14,19 @@ const Button: React.FunctionComponent<Props> = (props) => {
     const style = merge(styles.button, {
         width: props.width || 24,
         height: props.height || props.width,
-        background: props.background || "transparent"
+        background: props.background || "transparent",
+        opacity: props.disabled ? 0.35 : 1,
+        cursor: props.disabled ? "default" : "pointer",
+        pointerEvents: props.disabled ? "none" : "auto"
     });
     return (
-        <button type="button" style={style} title={props.title} onClick={props.onClick}>
+        <button
+            type="button"
+            style={style}
+            title={props.title}
+            disabled={props.disabled}
+            onClick={props.disabled ? undefined : props.onClick}
+        >
             {props.children}
         </button>
     );

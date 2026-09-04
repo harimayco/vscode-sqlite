@@ -97,6 +97,15 @@ export default class ResultView extends CustomView implements Disposable {
             return;
         }
 
+        if (message.type === "UPDATE_CONFIG") {
+            const recordsPerPage = message.payload && message.payload.recordsPerPage;
+            if (typeof recordsPerPage === "number") {
+                workspace.getConfiguration('sqlite').update('recordsPerPage', recordsPerPage, true);
+                window.setStatusBarMessage(`SQLite: Records per page set to ${recordsPerPage}`, 3000);
+            }
+            return;
+        }
+
         if (message.type === "CLOSE_QUERY") {
             const qId = message.payload && message.payload.queryId;
             if (qId) {
