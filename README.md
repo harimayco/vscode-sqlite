@@ -1,6 +1,4 @@
-# vscode-sqlite (unmaintained)
-
-**Note: The project has been unmaintained since mid 2022 and it will not receive any new updates. The extension should still work in most cases, however the embedded SQLite is out of date and it may not have some of the newer features, in that case you can provide your own SQLite (see `sqlite.sqlite3` setting).**
+# vscode-sqlite
 
 VSCode extension to explore and query SQLite databases.
 
@@ -18,28 +16,42 @@ VSCode extension to explore and query SQLite databases.
 
 ## Features
 
-* **Query** SQLite databases and view results in a table (also supports dot commands like `.tables`, `.schema`, ecc).
+* **Dedicated Activity Bar Explorer**: Access SQLite directly from its own dedicated icon in the main left VS Code Activity Bar with a quick Add Database (`+`) button to browse databases, tables, views, and columns.
 
-* **Export** query results to `json`, `csv` and `html`.
+* **Run Query Toolbar Button**: Play button in the top-right editor title bar to instantly execute the selected query or the entire SQL document.
 
-* **Sidebar explorer**: list databases, tables, views and columns.
+* **Multi-Tab Query Results**: Query outputs open in separate tabs within the bottom result panel so you can effortlessly compare and switch between past results without losing your work.
 
-* **Autocompletion** for SQLite keywords, table and views names, column names (autocompletion is available for an SQL document once its bound to a database, to bind an sql document to a database use the command `SQLite: Use Database`)
+* **Interactive Column Header Filtering**: Filter query results directly from table column headers for simple `SELECT` queries. Defaults to `Contains (LIKE %...%)` with support for `Equal`, `Not Equal`, `Starts With`, `Ends With`, `>`, `<`, `>=`, `<=`, `Is NULL`, and `Is NOT NULL`. Automatically synchronizes and updates the SQL `WHERE` clause across all pages.
 
-* **Grammar** support for SQLite keywords. This is available for documents with language `sqlite`. You can mark a document as an `sqlite` document adding `-- sqlite` in the first line.
+* **Zebra Striped Results Table & Active Row Highlighting**: Alternating striped table rows for enhanced readability, plus full row highlighting whenever any cell is selected while keeping the active cell distinctly outlined.
+
+* **Searchable Column Show / Hide**: Toggle column visibility with a searchable popup dialog (eye icon in the toolbar), featuring a real-time column filter input and visible column counter.
+
+* **SQL INSERT INTO Export**: Export results to SQL `INSERT INTO` statements via a column selection modal dialog with automatic primary key auto-increment ID detection and exclusion (foreign keys preserved), plus support for multi-row batch insert or single-row statements.
+
+* **Export Formats**: Export query results to `JSON`, `CSV`, `HTML`, and customizable `SQL`.
+
+* **Enhanced Pagination & Settings Shortcut**: Jump to first page (`⏮`) or last page (`⏭`), configure records per page, and access the extension settings page directly via the gear (`⚙️`) button in the result view.
+
+* **Copy SQL Query**: 1-click "Copy SQL" buttons in the result view toolbar and inside the SQL statement viewer with visual confirmation.
+
+* **Autocompletion** for SQLite keywords, table and views names, column names (autocompletion is available for an SQL document once bound to a database via `SQLite: Use Database`).
+
+* **Grammar & Syntax Highlighting** for SQLite documents (documents with language `sqlite` or starting with `-- sqlite`).
 
 
 ## Commands
 
-* **SQLite: New Query** &nbsp; Create a new untitled `sqlite` file.
+* **SQLite: Run Query** &nbsp; Execute query script in the editor (also available as a play button in the editor title bar).
 
-* **SQLite: Run Query** &nbsp; Execute query script in the editor.
+* **SQLite: New Query** &nbsp; Create a new untitled `sqlite` file.
 
 * **SQLite: Quick Query** &nbsp; Choose a database and execute a query without creating a new document.
 
 * **SQLite: Use Database** &nbsp; Bind current `sql` document to the selected database.
 
-* **SQLite: Open Database** &nbsp; Open the selected database in the sqlite explorer.
+* **SQLite: Open Database** &nbsp; Open the selected database in the sqlite explorer (available via `+` in the activity bar).
 
 * **SQLite: Close Database** &nbsp; Remove the selected database from the sqlite explorer.
 
@@ -52,11 +64,13 @@ VSCode extension to explore and query SQLite databases.
 
 ## Settings
 
-* `"sqlite.sqlite3": string` &nbsp; sqlite3 command or CLI executable path (this setting is disabled for untrusted workspaces)
+* `"sqlite.sqlite3": string` &nbsp; sqlite3 command or CLI executable path (this setting is disabled for untrusted workspaces).
 
 * `"sqlite.logLevel": string` &nbsp; Set output channel log level (DEBUG, INFO, WARN, ERROR).
 
-* `"sqlite.recordsPerPage": number` &nbsp; Number of records to show per page. (-1 to show all records).
+* `"sqlite.recordsPerPage": number` &nbsp; Number of records to show per page (-1 to show all records).
+
+* `"sqlite.insertExportExcludeId": boolean` &nbsp; Exclude auto-increment primary key ID columns by default when exporting to SQL `INSERT INTO` (default: `true`).
 
 * `"sqlite.databaseExtensions": string[]` &nbsp; The file extensions recognized as SQLite database.
 
