@@ -1,0 +1,63 @@
+name: Build VSIX
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch name or git ref to build VSIX from'
+        required: true
+        default: 'master'
+        type: string
+      run_tests:
+        description: 'Run unit tests before packaging'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build-vsix:
+    name: Build VSIX Package
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_OPTIONS: "--openssl-legacy-provider"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Setup Node.js 18.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+
+      - name: Install dependencies
+        run: |
+          npm install --legacy-peer-deps --ignore-scripts
+          cd ./src/resultview/html && npm install --legacy-peer-deps
+
+      - name: Run unit tests
+        if: ${{ inputs.run_tests }}
+        run: |
+          npx jest tests/unit/utils/sqlExport.test.ts
+          npx jest tests/unit/utils/utils.test.ts
+
+      - name: Package VSIX
+        run: npm run package
+
+      - name: Extract metadata
+        id: meta
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          SAFE_BRANCH=$(echo "${{ inputs.branch }}" | tr '/' '-')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "safe_branch=$SAFE_BRANCH" >> $GITHUB_OUTPUT
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-sqlite-${{ steps.meta.outputs.safe_branch }}-v${{ steps.meta.outputs.version }}
+          path: "*.vsix"
+          if-no-files-found: error

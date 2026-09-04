@@ -33,7 +33,7 @@ export class Api {
         });
     }
 
-    exportResults(format: string, result?: number) {
+    exportResults(format: "csv" | "html" | "json" | "sql" | string, result?: number) {
         this.vscodeApi.postMessage({
             type: "EXPORT_RESULTS",
             payload: { result, format },

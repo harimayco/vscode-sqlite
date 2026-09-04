@@ -4,6 +4,7 @@ import BtnShowHide from "./BtnShowHide";
 import BtnExportJson from "./BtnExportJson";
 import BtnExportHtml from "./BtnExportHtml";
 import BtnExportCsv from "./BtnExportCsv";
+import BtnExportSql from "./BtnExportSql";
 import BtnSql from "./BtnSql";
 import Statement from "./Statement";
 
@@ -17,7 +18,7 @@ interface Props {
         onPage?: (offset: number, limit: number) => void;
     };
     onToggleHidden: () => void;
-    onExport: (format: "csv"|"html"|"json") => void;
+    onExport: (format: "csv"|"html"|"json"|"sql") => void;
     onSql: () => void;
 }
 
@@ -31,6 +32,7 @@ const ResultSetHeader: React.FunctionComponent<Props> = (props) => {
                     <BtnExportCsv onClick={() => props.onExport("csv")}/>
                     <BtnExportHtml onClick={() => props.onExport("html")}/>
                     <BtnExportJson onClick={() => props.onExport("json")}/>
+                    <BtnExportSql onClick={() => props.onExport("sql")}/>
                     <BtnShowHide onClick={props.onToggleHidden} />
                 </div>
             </div>

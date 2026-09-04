@@ -3,7 +3,8 @@ import { CustomView, Message } from "./customview";
 import { sanitizeStringForHtml } from "../utils/utils";
 import * as csvStringify from 'csv-stringify/lib/sync';
 import { EOL } from "os";
-import { ResultSet } from "../common";
+import { ResultSet, Result } from "../common";
+import { toInsertSql } from "./sqlExport";
 
 export default class ResultView extends CustomView implements Disposable {
 
@@ -50,13 +51,35 @@ export default class ResultView extends CustomView implements Disposable {
                 this.send({type: "FETCH_ROWS", payload: {result: message.payload.result, rows: result!.rows.slice(fromRow, toRow), offset: fromRow, limit: message.payload.limit}});
             }
             case "EXPORT_RESULTS": {
-                const obj = message.payload.result ? this.resultSet![message.payload.result] : this.resultSet;
+                const obj = typeof message.payload.result === "number" ? this.resultSet![message.payload.result] : this.resultSet;
                 const format = message.payload.format;
                 if (format === "csv") this.exportCsv(obj);
                 if (format === "html") this.exportHtml(obj);
                 if (format === "json") this.exportJson(obj);
+                if (format === "sql") this.exportSql(obj);
             }
         }
+    }
+
+    private exportSql(obj: Result | Array<Result>) {
+        setTimeout(() => {
+            let sqlList: string[] = [];
+            if (Array.isArray(obj)) {
+                for (let i in obj) {
+                    let ret = toInsertSql(obj[i].stmt, obj[i].header, obj[i].rows);
+                    if (ret) {
+                        sqlList.push(ret);
+                    }
+                }
+            } else {
+                let ret = toInsertSql(obj.stmt, obj.header, obj.rows);
+                if (ret) {
+                    sqlList.push(ret);
+                }
+            }
+
+            this.exportFile('sql', sqlList.join(EOL + EOL));
+        }, 0);
     }
 
     private exportJson(obj: Object) {
