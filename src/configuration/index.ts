@@ -12,6 +12,9 @@ export interface Configuration {
     setupDatabase: {
         [dbPath: string]: { sql: string[]; }
     };
+    insertExportStyle: string;
+    insertExportBatchSize: number;
+    resultViewPosition: string;
 }
 
 export function getConfiguration(extensionContext: ExtensionContext) {
@@ -20,7 +23,10 @@ export function getConfiguration(extensionContext: ExtensionContext) {
         logLevel: _logLevel(),
         recordsPerPage: _recordsPerPage(),
         databaseExtensions: _databaseExtensions(),
-        setupDatabase: _setupDatabase()
+        setupDatabase: _setupDatabase(),
+        insertExportStyle: _insertExportStyle(),
+        insertExportBatchSize: _insertExportBatchSize(),
+        resultViewPosition: _resultViewPosition()
     } as Configuration;
 }
 
@@ -66,6 +72,33 @@ function _databaseExtensions(): Array<string> {
 function _setupDatabase(): {[dbPath: string]: { sql: string[]; }} {
     let setupDatabaseConfig = workspace.getConfiguration().get('sqlite.setupDatabase', {});
     return setupDatabaseConfig;
+}
+
+function _insertExportStyle(): string {
+    let conf = workspace.getConfiguration().get<string>('sqlite.insertExportStyle');
+    let defaultValue = properties["sqlite.insertExportStyle"]["default"];
+    if (conf && ["single", "multi", "prompt"].indexOf(conf) !== -1) {
+        return conf;
+    }
+    return defaultValue;
+}
+
+function _insertExportBatchSize(): number {
+    let conf = workspace.getConfiguration().get('sqlite.insertExportBatchSize');
+    let defaultValue = properties["sqlite.insertExportBatchSize"]["default"];
+    if (typeof conf === "number" && conf >= 1) {
+        return conf;
+    }
+    return defaultValue;
+}
+
+function _resultViewPosition(): string {
+    let conf = workspace.getConfiguration().get<string>('sqlite.resultViewPosition');
+    let defaultValue = properties["sqlite.resultViewPosition"]["default"];
+    if (conf && ["beside", "bottom", "current"].indexOf(conf) !== -1) {
+        return conf;
+    }
+    return defaultValue;
 }
 
 function hasWorkspaceValue(section: string): boolean {

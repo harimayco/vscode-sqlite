@@ -1,10 +1,14 @@
-import { Disposable, workspace, window, ViewColumn, commands } from "vscode";
+import { Disposable, workspace, window, ViewColumn, commands, QuickPickItem } from "vscode";
 import { CustomView, Message } from "./customview";
 import { sanitizeStringForHtml } from "../utils/utils";
 import * as csvStringify from 'csv-stringify/lib/sync';
 import { EOL } from "os";
 import { ResultSet, Result } from "../common";
-import { toInsertSql } from "./sqlExport";
+import { toInsertSql, InsertSqlOptions } from "./sqlExport";
+
+interface InsertQuickPickItem extends QuickPickItem {
+    multiValue: boolean;
+}
 
 export default class ResultView extends CustomView implements Disposable {
 
@@ -17,8 +21,8 @@ export default class ResultView extends CustomView implements Disposable {
         this.msgQueue = [];
     }
 
-    display(resultSet: Promise<ResultSet|undefined>, recordsPerPage: number) {
-        this.show(this.extensionPath, recordsPerPage);
+    display(resultSet: Promise<ResultSet|undefined>, recordsPerPage: number, position: string = "beside") {
+        this.show(this.extensionPath, recordsPerPage, position);
         
         this.msgQueue = [];
         
@@ -43,38 +47,74 @@ export default class ResultView extends CustomView implements Disposable {
                 this.send({type: "FETCH_RESULTS", payload: results.map(result => (
                     {statement: result.stmt, columns: result.header, size: result.rows.length}
                 ))});
+                break;
             }
             case "FETCH_ROWS": {
                 const result = this.resultSet? this.resultSet[message.payload.result] : null;
                 const fromRow = message.payload.offset;
                 const toRow = fromRow + message.payload.limit;
                 this.send({type: "FETCH_ROWS", payload: {result: message.payload.result, rows: result!.rows.slice(fromRow, toRow), offset: fromRow, limit: message.payload.limit}});
+                break;
             }
             case "EXPORT_RESULTS": {
                 const obj = typeof message.payload.result === "number" ? this.resultSet![message.payload.result] : this.resultSet;
+                if (!obj) {
+                    break;
+                }
                 const format = message.payload.format;
                 if (format === "csv") this.exportCsv(obj);
                 if (format === "html") this.exportHtml(obj);
                 if (format === "json") this.exportJson(obj);
                 if (format === "sql") this.exportSql(obj);
+                break;
             }
         }
     }
 
     private exportSql(obj: Result | Array<Result>) {
+        const config = workspace.getConfiguration('sqlite');
+        const style = config.get<string>('insertExportStyle', 'single');
+        const batchSize = config.get<number>('insertExportBatchSize', 500);
+
+        if (style === "prompt") {
+            const items: InsertQuickPickItem[] = [
+                {
+                    label: "Single-Value INSERT",
+                    description: "One statement per row (INSERT INTO table (...) VALUES (...);)",
+                    multiValue: false
+                },
+                {
+                    label: "Multi-Values INSERT",
+                    description: "Batch values (INSERT INTO table (...) VALUES (...), (...);)",
+                    multiValue: true
+                }
+            ];
+
+            window.showQuickPick(items, {
+                placeHolder: "Select INSERT INTO SQL export style"
+            }).then(selected => {
+                if (!selected) {
+                    return;
+                }
+                this.doExportSql(obj, { multiValue: selected.multiValue, batchSize: batchSize });
+            });
+        } else {
+            const isMulti = style === "multi";
+            this.doExportSql(obj, { multiValue: isMulti, batchSize: batchSize });
+        }
+    }
+
+    private doExportSql(obj: Result | Array<Result>, options: InsertSqlOptions) {
         setTimeout(() => {
             let sqlList: string[] = [];
-            if (Array.isArray(obj)) {
-                for (let i in obj) {
-                    let ret = toInsertSql(obj[i].stmt, obj[i].header, obj[i].rows);
+            const results = Array.isArray(obj) ? obj : [obj];
+
+            for (const result of results) {
+                if (result) {
+                    let ret = toInsertSql(result.stmt, result.header, result.rows, options);
                     if (ret) {
                         sqlList.push(ret);
                     }
-                }
-            } else {
-                let ret = toInsertSql(obj.stmt, obj.header, obj.rows);
-                if (ret) {
-                    sqlList.push(ret);
                 }
             }
 
@@ -92,11 +132,13 @@ export default class ResultView extends CustomView implements Disposable {
         setTimeout(() => {
             let csvList = [];
             if (Array.isArray(obj)) {
-                for(let i in obj) {
-                    let ret = csvStringify(obj[i].rows, { columns: obj[i].header, header: true });
-                    csvList.push(ret);
+                for (const item of obj) {
+                    if (item) {
+                        let ret = csvStringify(item.rows, { columns: item.header, header: true });
+                        csvList.push(ret);
+                    }
                 }
-            } else {
+            } else if (obj) {
                 let ret = csvStringify(obj.rows, { columns: obj.header, header: true });
                 csvList.push(ret);
             }
@@ -117,11 +159,13 @@ export default class ResultView extends CustomView implements Disposable {
         setTimeout(() => {
             let htmlList = [];
             if (Array.isArray(obj)) {
-                for(let i in obj) {
-                    let ret = toHtml(obj[i].header, obj[i].rows);
-                    htmlList.push(ret);
+                for (const item of obj) {
+                    if (item) {
+                        let ret = toHtml(item.header, item.rows);
+                        htmlList.push(ret);
+                    }
                 }
-            } else {
+            } else if (obj) {
                 let ret = toHtml(obj.header, obj.rows);
                 htmlList.push(ret);
             }
@@ -133,6 +177,10 @@ export default class ResultView extends CustomView implements Disposable {
     private exportFile(language: string, content: string) {
         workspace.openTextDocument({language: language, content: content})
             .then(doc => window.showTextDocument(doc, ViewColumn.One))
-            .then(() => commands.executeCommand('workbench.action.files.saveAs'));
+            .then(() => commands.executeCommand('workbench.action.files.saveAs'))
+            .then(undefined, err => {
+                const message = err && err.message ? err.message : String(err);
+                window.showErrorMessage(`Export failed: ${message}`);
+            });
     }
 }

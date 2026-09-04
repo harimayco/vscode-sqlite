@@ -26,6 +26,7 @@ export class RunQueryCommandsHandler
     private recordsPerPage: number;
     private databaseExtensions: string[];
     private setupDatabaseConfig: { [dbPath: string]: { sql: string[] } };
+    private resultViewPosition: string;
 
     constructor(
         sqlWorkspace: SqlWorkspace,
@@ -33,7 +34,8 @@ export class RunQueryCommandsHandler
         resultView: ResultView,
         recordsPerPage: number,
         databaseExtensions: string[],
-        setupDatabaseConfig: { [dbPath: string]: { sql: string[] } }
+        setupDatabaseConfig: { [dbPath: string]: { sql: string[] } },
+        resultViewPosition: string = "beside"
     ) {
         this.sqlWorkspace = sqlWorkspace;
         this.sqlite = sqlite;
@@ -41,12 +43,14 @@ export class RunQueryCommandsHandler
         this.recordsPerPage = recordsPerPage;
         this.databaseExtensions = databaseExtensions;
         this.setupDatabaseConfig = setupDatabaseConfig;
+        this.resultViewPosition = resultViewPosition;
     }
 
     onConfigurationChange(configuration: Configuration): void {
         this.recordsPerPage = configuration.recordsPerPage;
         this.databaseExtensions = configuration.databaseExtensions;
         this.setupDatabaseConfig = configuration.setupDatabase;
+        this.resultViewPosition = configuration.resultViewPosition;
     }
 
     activate(extensionContext: ExtensionContext): void {
@@ -188,6 +192,6 @@ export class RunQueryCommandsHandler
 
                 return resultSet;
             });
-        this.resultView.display(resultSet, this.recordsPerPage);
+        this.resultView.display(resultSet, this.recordsPerPage, this.resultViewPosition);
     }
 }

@@ -1,4 +1,4 @@
-import { WebviewPanel, window, ViewColumn, Disposable, Uri } from "vscode";
+import { WebviewPanel, window, ViewColumn, Disposable, Uri, commands } from "vscode";
 import { EventEmitter } from "events";
 import { join } from "path";
 
@@ -18,11 +18,11 @@ export class CustomView extends EventEmitter implements Disposable {
         this.resourcesPath = "";
     }
 
-    show(basePath: string, recordsPerPage: number) {
+    show(basePath: string, recordsPerPage: number, position: string = "beside") {
         this.resourcesPath = join(basePath, "dist");
 
         if (!this.panel) {
-            this.init();
+            this.init(position);
         }
         
         const jsPath = join(this.resourcesPath, "resultview.js");
@@ -55,7 +55,7 @@ export class CustomView extends EventEmitter implements Disposable {
         this.panel = undefined;
     }
 
-    private init() {
+    private init(position: string = "beside") {
         let subscriptions = [];
 
         let options = {
@@ -64,10 +64,21 @@ export class CustomView extends EventEmitter implements Disposable {
             localResourceRoots: [Uri.file(this.resourcesPath)]
         };
 
-        this.panel = window.createWebviewPanel(this.type, this.title, ViewColumn.Two,
+        let viewColumn = ViewColumn.Two;
+        if (position === "current") {
+            viewColumn = ViewColumn.Active;
+        } else if (position === "bottom") {
+            viewColumn = ViewColumn.Beside;
+        }
+
+        this.panel = window.createWebviewPanel(this.type, this.title, viewColumn,
             options
         );
         subscriptions.push(this.panel);
+
+        if (position === "bottom") {
+            commands.executeCommand('workbench.action.moveEditorToBelowGroup');
+        }
 
         subscriptions.push(this.panel.onDidDispose(() => this.dispose()));
 

@@ -429,6 +429,32 @@
                     },
                     "default": {},
                     "description": "SQL query to execute every time a database is opened."
+                },
+                "sqlite.insertExportStyle": {
+                    "type": "string",
+                    "enum": [
+                        "single",
+                        "multi",
+                        "prompt"
+                    ],
+                    "default": "single",
+                    "description": "Format for INSERT INTO SQL exports: 'single' (one statement per row), 'multi' (batch VALUES (...), (...)), or 'prompt' (choose every time)."
+                },
+                "sqlite.insertExportBatchSize": {
+                    "type": "number",
+                    "default": 500,
+                    "minimum": 1,
+                    "description": "Maximum number of rows per batch in multi-value INSERT INTO SQL exports."
+                },
+                "sqlite.resultViewPosition": {
+                    "type": "string",
+                    "enum": [
+                        "beside",
+                        "bottom",
+                        "current"
+                    ],
+                    "default": "beside",
+                    "description": "Where to display the SQLite Result View: 'beside' (side editor group), 'bottom' (bottom editor group), or 'current' (active editor group)."
                 }
             }
         }

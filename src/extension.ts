@@ -90,7 +90,8 @@ export function activate(extensionContext: ExtensionContext): Promise<boolean> {
             resultView,
             configuration.recordsPerPage,
             configuration.databaseExtensions,
-            configuration.setupDatabase
+            configuration.setupDatabase,
+            configuration.resultViewPosition
         ),
         new ExplorerCommandsHandler(
             explorer,
