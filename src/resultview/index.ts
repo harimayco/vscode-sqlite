@@ -73,7 +73,7 @@ export default class ResultView extends CustomView implements Disposable {
 
     private exportSql(obj: Result | Array<Result>) {
         const config = workspace.getConfiguration('sqlite');
-        const style = config.get<string>('insertExportStyle', 'single');
+        const style = config.get<string>('insertExportStyle', 'prompt');
         const batchSize = config.get<number>('insertExportBatchSize', 500);
 
         if (style === "prompt") {

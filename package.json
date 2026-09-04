@@ -433,12 +433,12 @@
                 "sqlite.insertExportStyle": {
                     "type": "string",
                     "enum": [
+                        "prompt",
                         "single",
-                        "multi",
-                        "prompt"
+                        "multi"
                     ],
-                    "default": "single",
-                    "description": "Format for INSERT INTO SQL exports: 'single' (one statement per row), 'multi' (batch VALUES (...), (...)), or 'prompt' (choose every time)."
+                    "default": "prompt",
+                    "description": "Format for INSERT INTO SQL exports: 'prompt' (choose every time), 'single' (one statement per row), or 'multi' (batch VALUES (...), (...))."
                 },
                 "sqlite.insertExportBatchSize": {
                     "type": "number",

@@ -12,7 +12,7 @@ describe("ResultView Export & Display", () => {
         resultView = new ResultView("/path/to/ext");
     });
 
-    test("exports single result to single-row SQL by default", async () => {
+    test("exports single result to single-row SQL when configured to single", async () => {
         const mockResult: Result = {
             stmt: "SELECT * FROM users;",
             header: ["id", "name"],
@@ -40,6 +40,36 @@ describe("ResultView Export & Display", () => {
         expect(openArgs.language).toBe("sql");
         expect(openArgs.content).toContain("INSERT INTO users (id, name) VALUES (1, 'Alice');");
         expect(openArgs.content).toContain("INSERT INTO users (id, name) VALUES (2, 'Bob');");
+    });
+
+    test("prompts with QuickPick by default when insertExportStyle is prompt or unset", async () => {
+        const mockResult: Result = {
+            stmt: "SELECT * FROM users;",
+            header: ["id", "name"],
+            rows: [["1", "Alice"]]
+        };
+        (resultView as any).resultSet = [mockResult];
+
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: jest.fn((key: string, defaultVal: any) => defaultVal)
+        });
+
+        (vscode.window.showQuickPick as jest.Mock).mockResolvedValue({
+            label: "Single-Value INSERT",
+            multiValue: false
+        });
+
+        (resultView as any).handleMessage({
+            type: "EXPORT_RESULTS",
+            payload: { result: 0, format: "sql" }
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        expect(vscode.window.showQuickPick).toHaveBeenCalledTimes(1);
+        expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(1);
+        const openArgs = (vscode.workspace.openTextDocument as jest.Mock).mock.calls[0][0];
+        expect(openArgs.content).toContain("INSERT INTO users (id, name) VALUES (1, 'Alice');");
     });
 
     test("exports result to multi-values batch SQL when configured", async () => {
