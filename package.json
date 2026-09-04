@@ -488,6 +488,11 @@
                     "minimum": 1,
                     "description": "Maximum number of rows per batch in multi-value INSERT INTO SQL exports."
                 },
+                "sqlite.insertExportExcludeId": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Exclude primary key / auto-increment ID column (e.g. 'id', '<table_name>_id', 'rowid') from exported INSERT INTO SQL statements."
+                },
                 "sqlite.resultViewPosition": {
                     "type": "string",
                     "enum": [

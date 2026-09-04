@@ -4,6 +4,38 @@ import { sqlSafeName } from "../utils/utils";
 export interface InsertSqlOptions {
     multiValue?: boolean;
     batchSize?: number;
+    excludeId?: boolean;
+    idColumn?: string;
+}
+
+/**
+ * Check if a column name represents an auto-increment ID / primary key
+ */
+export function isIdColumn(colName: string, tableName?: string): boolean {
+    if (!colName) {
+        return false;
+    }
+    const cleanCol = stripColumnQualifier(colName).trim().toLowerCase();
+    if (cleanCol === "id" || cleanCol === "rowid" || cleanCol === "_rowid_" || cleanCol === "oid") {
+        return true;
+    }
+    if (tableName) {
+        const cleanTable = tableName.trim().toLowerCase();
+        let singularTable = cleanTable;
+        if (cleanTable.endsWith("ies") && cleanTable.length > 3) {
+            singularTable = cleanTable.slice(0, -3) + "y";
+        } else if (cleanTable.endsWith("es") && cleanTable.length > 2) {
+            singularTable = cleanTable.slice(0, -2);
+        } else if (cleanTable.endsWith("s") && cleanTable.length > 1) {
+            singularTable = cleanTable.slice(0, -1);
+        }
+
+        if (cleanCol === `${cleanTable}_id` || cleanCol === `${cleanTable}id` ||
+            cleanCol === `${singularTable}_id` || cleanCol === `${singularTable}id`) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**
@@ -113,7 +145,31 @@ export function toInsertSql(
 
     const rawTableName = extractTableName(stmt);
     const tableName = sqlSafeName(rawTableName);
-    const columns = header.map(col => sqlSafeName(stripColumnQualifier(col))).join(", ");
+
+    // Check if ID column should be excluded (default is true unless options.excludeId === false)
+    const shouldExcludeId = options?.excludeId !== false;
+    let effectiveHeader = header;
+    let idIndex = -1;
+    if (shouldExcludeId && header.length > 1) {
+        if (options?.idColumn === "__NONE__") {
+            // DB metadata explicitly confirmed table has no auto-increment primary key
+            idIndex = -1;
+        } else if (options?.idColumn) {
+            const cleanTarget = options.idColumn.trim().toLowerCase();
+            idIndex = header.findIndex(col => stripColumnQualifier(col).trim().toLowerCase() === cleanTarget);
+            if (idIndex === -1) {
+                idIndex = header.findIndex(col => isIdColumn(col, rawTableName));
+            }
+        } else {
+            idIndex = header.findIndex(col => isIdColumn(col, rawTableName));
+        }
+
+        if (idIndex !== -1) {
+            effectiveHeader = header.filter((_, idx) => idx !== idIndex);
+        }
+    }
+
+    const columns = effectiveHeader.map(col => sqlSafeName(stripColumnQualifier(col))).join(", ");
 
     let prefix = "";
     if (hasJoinClause(stmt)) {
@@ -130,11 +186,19 @@ export function toInsertSql(
     const isMultiValue = !!options?.multiValue;
     const batchSize = options?.batchSize && options.batchSize > 0 ? options.batchSize : 500;
 
+    const filterRow = (row: any) => {
+        const rowArr = Array.isArray(row) ? row : [];
+        if (idIndex !== -1) {
+            return rowArr.filter((_, idx) => idx !== idIndex);
+        }
+        return rowArr;
+    };
+
     if (!isMultiValue) {
         // Single-statement per row format
         const lines = rows.map(row => {
-            const rowArr = Array.isArray(row) ? row : [];
-            const values = rowArr.map(sqlSafeValue).join(", ");
+            const rowValues = filterRow(row);
+            const values = rowValues.map(sqlSafeValue).join(", ");
             return `INSERT INTO ${tableName} (${columns}) VALUES (${values});`;
         });
         return prefix + lines.join(EOL);
@@ -144,8 +208,8 @@ export function toInsertSql(
         for (let i = 0; i < rows.length; i += batchSize) {
             const chunk = rows.slice(i, i + batchSize);
             const valueRows = chunk.map(row => {
-                const rowArr = Array.isArray(row) ? row : [];
-                const values = rowArr.map(sqlSafeValue).join(", ");
+                const rowValues = filterRow(row);
+                const values = rowValues.map(sqlSafeValue).join(", ");
                 return `  (${values})`;
             });
             batches.push(`INSERT INTO ${tableName} (${columns}) VALUES${EOL}${valueRows.join(`,${EOL}`)};`);

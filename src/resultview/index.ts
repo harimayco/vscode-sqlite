@@ -4,11 +4,14 @@ import { sanitizeStringForHtml } from "../utils/utils";
 import * as csvStringify from 'csv-stringify/lib/sync';
 import { EOL } from "os";
 import { ResultSet, Result } from "../common";
-import { toInsertSql, InsertSqlOptions } from "./sqlExport";
+import { toInsertSql, InsertSqlOptions, extractTableName } from "./sqlExport";
+import SQLite from "../sqlite";
+import { getTablePrimaryKeyInfo } from "../sqlite/tableInfo";
 import { isSimpleSelectQuery, buildFilteredSqlQuery, filterRows, ColumnFilter } from "../utils/sqlFilter";
 
 interface InsertQuickPickItem extends QuickPickItem {
     multiValue: boolean;
+    excludeId: boolean;
 }
 
 interface QueryTabRecord {
@@ -18,6 +21,7 @@ interface QueryTabRecord {
     timestamp: string;
     queryIndex: number;
     results: any[];
+    dbPath?: string;
 }
 
 export default class ResultView extends CustomView implements Disposable {
@@ -28,14 +32,19 @@ export default class ResultView extends CustomView implements Disposable {
     private queryTabs: QueryTabRecord[] = [];
     private queryCounter: number = 0;
     private msgQueue: Message[];
+    private sqlite?: SQLite;
 
-    constructor(private extensionPath: string) {
+    constructor(private extensionPath: string, sqlite?: SQLite) {
         super('resultview', 'SQLite', extensionPath);
-
+        this.sqlite = sqlite;
         this.msgQueue = [];
     }
 
-    display(resultSet: Promise<ResultSet|undefined>, recordsPerPage: number, position: string = "bottom", queryOptions?: { isView?: boolean }) {
+    setSqlite(sqlite: SQLite) {
+        this.sqlite = sqlite;
+    }
+
+    display(resultSet: Promise<ResultSet|undefined>, recordsPerPage: number, position: string = "bottom", queryOptions?: { isView?: boolean; dbPath?: string }) {
         this.show(this.extensionPath, recordsPerPage, position);
         
         this.msgQueue = [];
@@ -96,7 +105,8 @@ export default class ResultView extends CustomView implements Disposable {
                 statement,
                 timestamp,
                 queryIndex,
-                results: resultsData
+                results: resultsData,
+                dbPath: queryOptions?.dbPath
             };
             this.queryTabs.push(tabRecord);
 
@@ -248,34 +258,76 @@ export default class ResultView extends CustomView implements Disposable {
                         rows: message.payload.rows
                     };
                 }
+                const tab = queryId ? this.queryTabs.find(t => t.queryId === queryId) : undefined;
+                const dbPath = tab ? tab.dbPath : undefined;
+
                 const format = message.payload.format;
                 if (format === "csv") this.exportCsv(targetObj);
                 if (format === "html") this.exportHtml(targetObj);
                 if (format === "json") this.exportJson(targetObj);
-                if (format === "sql") this.exportSql(targetObj);
+                if (format === "sql") this.exportSql(targetObj, dbPath);
                 break;
             }
         }
     }
 
-    private exportSql(obj: Result | Array<Result>) {
+    private async exportSql(obj: Result | Array<Result>, dbPath?: string) {
         const config = workspace.getConfiguration('sqlite');
         const style = config.get<string>('insertExportStyle', 'prompt');
         const batchSize = config.get<number>('insertExportBatchSize', 500);
+        const excludeIdConfig = config.get<boolean>('insertExportExcludeId', true);
+
+        // Attempt database-level primary key / auto-increment inspection
+        let detectedIdCol: string | undefined = undefined;
+        if (this.sqlite && dbPath) {
+            const firstResult = Array.isArray(obj) ? obj[0] : obj;
+            if (firstResult && firstResult.stmt) {
+                const rawTableName = extractTableName(firstResult.stmt);
+                try {
+                    const pkInfo = await getTablePrimaryKeyInfo(this.sqlite, dbPath, rawTableName);
+                    if (pkInfo) {
+                        detectedIdCol = pkInfo.autoIncrementColumn || "__NONE__";
+                    }
+                } catch {
+                    // Fall back to naming conventions
+                }
+            }
+        }
 
         if (style === "prompt") {
-            const items: InsertQuickPickItem[] = [
+            const excludeItems: InsertQuickPickItem[] = [
                 {
-                    label: "Single-Value INSERT",
-                    description: "One statement per row (INSERT INTO table (...) VALUES (...);)",
-                    multiValue: false
+                    label: "Single-Value INSERT (Exclude ID)",
+                    description: "One statement per row, omitting auto-increment ID column" + (excludeIdConfig ? " (Default)" : ""),
+                    multiValue: false,
+                    excludeId: true
                 },
                 {
-                    label: "Multi-Values INSERT",
-                    description: "Batch values (INSERT INTO table (...) VALUES (...), (...);)",
-                    multiValue: true
+                    label: "Multi-Values INSERT (Exclude ID)",
+                    description: "Batch values, omitting auto-increment ID column",
+                    multiValue: true,
+                    excludeId: true
                 }
             ];
+
+            const includeItems: InsertQuickPickItem[] = [
+                {
+                    label: "Single-Value INSERT (Include ID)",
+                    description: "One statement per row, including all columns" + (!excludeIdConfig ? " (Default)" : ""),
+                    multiValue: false,
+                    excludeId: false
+                },
+                {
+                    label: "Multi-Values INSERT (Include ID)",
+                    description: "Batch values, including all columns",
+                    multiValue: true,
+                    excludeId: false
+                }
+            ];
+
+            const items: InsertQuickPickItem[] = excludeIdConfig
+                ? [...excludeItems, ...includeItems]
+                : [...includeItems, ...excludeItems];
 
             window.showQuickPick(items, {
                 placeHolder: "Select INSERT INTO SQL export style"
@@ -283,11 +335,21 @@ export default class ResultView extends CustomView implements Disposable {
                 if (!selected) {
                     return;
                 }
-                this.doExportSql(obj, { multiValue: selected.multiValue, batchSize: batchSize });
+                this.doExportSql(obj, {
+                    multiValue: selected.multiValue,
+                    batchSize: batchSize,
+                    excludeId: selected.excludeId,
+                    idColumn: detectedIdCol
+                });
             });
         } else {
             const isMulti = style === "multi";
-            this.doExportSql(obj, { multiValue: isMulti, batchSize: batchSize });
+            this.doExportSql(obj, {
+                multiValue: isMulti,
+                batchSize: batchSize,
+                excludeId: excludeIdConfig,
+                idColumn: detectedIdCol
+            });
         }
     }
 

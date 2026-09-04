@@ -244,6 +244,6 @@ export class RunQueryCommandsHandler
 
                 return resultSet;
             });
-        this.resultView.display(resultSet, this.recordsPerPage, this.resultViewPosition, queryOptions);
+        this.resultView.display(resultSet, this.recordsPerPage, this.resultViewPosition, { ...queryOptions, dbPath });
     }
 }

@@ -58,7 +58,7 @@ export function activate(extensionContext: ExtensionContext): Promise<boolean> {
 
     sqlWorkspace = new SqlWorkspace();
     sqlite = new SQLite(extensionContext.extensionPath, configuration.sqlite3);
-    resultView = new ResultView(extensionContext.extensionPath);
+    resultView = new ResultView(extensionContext.extensionPath, sqlite);
     languageserver = new LanguageServer();
     explorer = new Explorer(extensionContext);
 

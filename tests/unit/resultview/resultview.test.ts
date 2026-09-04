@@ -24,6 +24,38 @@ describe("ResultView Export & Display", () => {
             get: jest.fn((key: string, defaultVal: any) => {
                 if (key === "insertExportStyle") return "single";
                 if (key === "insertExportBatchSize") return 500;
+                if (key === "insertExportExcludeId") return true;
+                return defaultVal;
+            })
+        });
+
+        (resultView as any).handleMessage({
+            type: "EXPORT_RESULTS",
+            payload: { result: 0, format: "sql" }
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(1);
+        const openArgs = (vscode.workspace.openTextDocument as jest.Mock).mock.calls[0][0];
+        expect(openArgs.language).toBe("sql");
+        expect(openArgs.content).toContain("INSERT INTO users (name) VALUES ('Alice');");
+        expect(openArgs.content).toContain("INSERT INTO users (name) VALUES ('Bob');");
+    });
+
+    test("exports result including ID when insertExportExcludeId is configured to false", async () => {
+        const mockResult: Result = {
+            stmt: "SELECT * FROM users;",
+            header: ["id", "name"],
+            rows: [["1", "Alice"], ["2", "Bob"]]
+        };
+        (resultView as any).resultSet = [mockResult];
+
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: jest.fn((key: string, defaultVal: any) => {
+                if (key === "insertExportStyle") return "single";
+                if (key === "insertExportBatchSize") return 500;
+                if (key === "insertExportExcludeId") return false;
                 return defaultVal;
             })
         });
@@ -55,8 +87,9 @@ describe("ResultView Export & Display", () => {
         });
 
         (vscode.window.showQuickPick as jest.Mock).mockResolvedValue({
-            label: "Single-Value INSERT",
-            multiValue: false
+            label: "Single-Value INSERT (Exclude ID)",
+            multiValue: false,
+            excludeId: true
         });
 
         (resultView as any).handleMessage({
@@ -67,6 +100,49 @@ describe("ResultView Export & Display", () => {
         await new Promise(resolve => setTimeout(resolve, 50));
 
         expect(vscode.window.showQuickPick).toHaveBeenCalledTimes(1);
+        const quickPickItems = (vscode.window.showQuickPick as jest.Mock).mock.calls[0][0];
+        expect(quickPickItems[0].excludeId).toBe(true);
+        expect(quickPickItems[0].label).toContain("Exclude ID");
+
+        expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(1);
+        const openArgs = (vscode.workspace.openTextDocument as jest.Mock).mock.calls[0][0];
+        expect(openArgs.content).toContain("INSERT INTO users (name) VALUES ('Alice');");
+    });
+
+    test("orders Include ID options first in QuickPick when insertExportExcludeId is false", async () => {
+        const mockResult: Result = {
+            stmt: "SELECT * FROM users;",
+            header: ["id", "name"],
+            rows: [["1", "Alice"]]
+        };
+        (resultView as any).resultSet = [mockResult];
+
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: jest.fn((key: string, defaultVal: any) => {
+                if (key === "insertExportStyle") return "prompt";
+                if (key === "insertExportExcludeId") return false;
+                return defaultVal;
+            })
+        });
+
+        (vscode.window.showQuickPick as jest.Mock).mockResolvedValue({
+            label: "Single-Value INSERT (Include ID)",
+            multiValue: false,
+            excludeId: false
+        });
+
+        (resultView as any).handleMessage({
+            type: "EXPORT_RESULTS",
+            payload: { result: 0, format: "sql" }
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        expect(vscode.window.showQuickPick).toHaveBeenCalledTimes(1);
+        const quickPickItems = (vscode.window.showQuickPick as jest.Mock).mock.calls[0][0];
+        expect(quickPickItems[0].excludeId).toBe(false);
+        expect(quickPickItems[0].label).toContain("Include ID");
+
         expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(1);
         const openArgs = (vscode.workspace.openTextDocument as jest.Mock).mock.calls[0][0];
         expect(openArgs.content).toContain("INSERT INTO users (id, name) VALUES (1, 'Alice');");
@@ -84,6 +160,7 @@ describe("ResultView Export & Display", () => {
             get: jest.fn((key: string, defaultVal: any) => {
                 if (key === "insertExportStyle") return "multi";
                 if (key === "insertExportBatchSize") return 500;
+                if (key === "insertExportExcludeId") return true;
                 return defaultVal;
             })
         });
@@ -98,9 +175,9 @@ describe("ResultView Export & Display", () => {
         expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(1);
         const openArgs = (vscode.workspace.openTextDocument as jest.Mock).mock.calls[0][0];
         expect(openArgs.language).toBe("sql");
-        expect(openArgs.content).toContain("INSERT INTO users (id, name) VALUES");
-        expect(openArgs.content).toContain("  (1, 'Alice'),");
-        expect(openArgs.content).toContain("  (2, 'Bob');");
+        expect(openArgs.content).toContain("INSERT INTO users (name) VALUES");
+        expect(openArgs.content).toContain("  ('Alice'),");
+        expect(openArgs.content).toContain("  ('Bob');");
     });
 
     test("prompts with QuickPick when insertExportStyle is prompt", async () => {
@@ -115,13 +192,15 @@ describe("ResultView Export & Display", () => {
             get: jest.fn((key: string, defaultVal: any) => {
                 if (key === "insertExportStyle") return "prompt";
                 if (key === "insertExportBatchSize") return 500;
+                if (key === "insertExportExcludeId") return true;
                 return defaultVal;
             })
         });
 
         (vscode.window.showQuickPick as jest.Mock).mockResolvedValue({
-            label: "Multi-Values INSERT",
-            multiValue: true
+            label: "Multi-Values INSERT (Exclude ID)",
+            multiValue: true,
+            excludeId: true
         });
 
         (resultView as any).handleMessage({
@@ -134,7 +213,7 @@ describe("ResultView Export & Display", () => {
         expect(vscode.window.showQuickPick).toHaveBeenCalledTimes(1);
         expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(1);
         const openArgs = (vscode.workspace.openTextDocument as jest.Mock).mock.calls[0][0];
-        expect(openArgs.content).toContain("INSERT INTO users (id, name) VALUES");
+        expect(openArgs.content).toContain("INSERT INTO users (name) VALUES");
     });
 
     test("handles undefined result safely when index is out of bounds", async () => {
@@ -177,7 +256,7 @@ describe("ResultView Export & Display", () => {
 
         expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(1);
         const openArgs = (vscode.workspace.openTextDocument as jest.Mock).mock.calls[0][0];
-        expect(openArgs.content).toContain("INSERT INTO users (id, name) VALUES (2, 'Bob');");
+        expect(openArgs.content).toContain("INSERT INTO users (name) VALUES ('Bob');");
         expect(openArgs.content).not.toContain("Alice");
         expect(openArgs.content).not.toContain("Charlie");
     });
@@ -360,5 +439,70 @@ describe("ResultView Export & Display", () => {
             }
         });
     });
+
+    test("inspects database table primary key info when dbPath and sqlite are provided", async () => {
+        const mockSqlite: any = {
+            query: jest.fn((_dbPath: string, query: string) => {
+                if (query.includes("PRAGMA table_info")) {
+                    return Promise.resolve({
+                        resultSet: [{
+                            stmt: query,
+                            header: ["cid", "name", "type", "notnull", "dflt_value", "pk"],
+                            rows: [
+                                ["0", "cust_id", "INTEGER", "1", "NULL", "1"],
+                                ["1", "company", "TEXT", "0", "NULL", "0"]
+                            ]
+                        }]
+                    });
+                }
+                return Promise.resolve({
+                    resultSet: [{
+                        stmt: query,
+                        header: ["sql"],
+                        rows: [["CREATE TABLE clients (cust_id INTEGER PRIMARY KEY, company TEXT);"]]
+                    }]
+                });
+            })
+        };
+
+        resultView.setSqlite(mockSqlite);
+
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: jest.fn((key: string, defaultVal: any) => {
+                if (key === "insertExportStyle") return "single";
+                if (key === "insertExportExcludeId") return true;
+                return defaultVal;
+            })
+        });
+
+        const mockSend = jest.fn();
+        (resultView as any).send = mockSend;
+        (resultView as any).show = jest.fn();
+
+        const rs: Result[] = [{
+            stmt: "SELECT cust_id, company FROM clients;",
+            header: ["cust_id", "company"],
+            rows: [["100", "Acme Corp"]]
+        }];
+
+        resultView.display(Promise.resolve(rs), 50, "bottom", { dbPath: "/dummy/clients.db" });
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        const qId = mockSend.mock.calls[0][0].payload.queryId;
+
+        (resultView as any).handleMessage({
+            type: "EXPORT_RESULTS",
+            payload: { queryId: qId, result: 0, format: "sql" }
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        expect(mockSqlite.query).toHaveBeenCalled();
+        expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(1);
+        const openArgs = (vscode.workspace.openTextDocument as jest.Mock).mock.calls[0][0];
+        // cust_id was accurately detected and excluded from column & values list
+        expect(openArgs.content).toContain("INSERT INTO clients (company) VALUES ('Acme Corp');");
+    });
 });
+
 
