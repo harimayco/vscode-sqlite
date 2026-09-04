@@ -39,6 +39,17 @@ const Table: React.FunctionComponent<Props> = (props) => {
 
     const containerRef = React.useRef<HTMLDivElement>(null);
 
+    const rowsWithSelectedCells = React.useMemo(() => {
+        const set = new Set<number>();
+        for (const cellKey of selectedCells) {
+            const commaIndex = cellKey.indexOf(",");
+            if (commaIndex !== -1) {
+                set.add(Number(cellKey.substring(0, commaIndex)));
+            }
+        }
+        return set;
+    }, [selectedCells]);
+
     // Global mouseup to finish drag selection
     React.useEffect(() => {
         const handleMouseUp = () => {
@@ -357,10 +368,20 @@ const Table: React.FunctionComponent<Props> = (props) => {
                 <tbody>
                     {props.rows.map((row, i) => {
                         const isRowSelected = selectedRows.has(i);
+                        const isRowOfSelectedCell = !isRowSelected && rowsWithSelectedCells.has(i);
+                        const isOdd = i % 2 === 1;
+
+                        let rowNumberStyle = isOdd ? styles.bodyColRowNumberZebra : styles.bodyColRowNumber;
+                        if (isRowSelected) {
+                            rowNumberStyle = styles.bodyColRowNumberSelected;
+                        } else if (isRowOfSelectedCell) {
+                            rowNumberStyle = styles.bodyColRowNumberRowOfCellSelected;
+                        }
+
                         return (
                             <tr key={i}>
                                 <td
-                                    style={isRowSelected ? styles.bodyColRowNumberSelected : styles.bodyColRowNumber}
+                                    style={rowNumberStyle}
                                     onClick={(e) => handleRowNumberClick(e, i)}
                                     onContextMenu={(e) => handleContextMenu(e, i)}
                                     title="Click to select row, Shift+Click for range, Ctrl+Click for multi-select, Right-click to export"
@@ -372,11 +393,13 @@ const Table: React.FunctionComponent<Props> = (props) => {
                                         return null;
                                     }
                                     const isCellSelected = selectedCells.has(`${i},${j}`);
-                                    let cellStyle = styles.bodyCol;
+                                    let cellStyle = isOdd ? styles.bodyColZebra : styles.bodyCol;
                                     if (isRowSelected) {
                                         cellStyle = styles.bodyColRowSelected;
                                     } else if (isCellSelected) {
                                         cellStyle = styles.bodyColCellSelected;
+                                    } else if (isRowOfSelectedCell) {
+                                        cellStyle = styles.bodyColRowOfCellSelected;
                                     }
 
                                     return (
@@ -567,6 +590,33 @@ const styles: {[prop: string]: React.CSSProperties} = {
         cursor: "pointer",
         whiteSpace: "pre"
     },
+    bodyColRowNumberZebra: {
+        position: "sticky",
+        left: 0,
+        zIndex: 1,
+        border: "1px solid var(--vscode-foreground)",
+        padding: "6px 8px",
+        background: "linear-gradient(var(--vscode-keybindingTable-rowsBackground, rgba(128, 128, 128, 0.05)), var(--vscode-keybindingTable-rowsBackground, rgba(128, 128, 128, 0.05))), var(--vscode-editor-background, #1e1e1e)",
+        color: "var(--vscode-descriptionForeground)",
+        textAlign: "right",
+        userSelect: "none",
+        cursor: "pointer",
+        whiteSpace: "pre"
+    },
+    bodyColRowNumberRowOfCellSelected: {
+        position: "sticky",
+        left: 0,
+        zIndex: 1,
+        border: "1px solid var(--vscode-focusBorder, #007fd4)",
+        padding: "6px 8px",
+        background: "linear-gradient(var(--vscode-list-hoverBackground, rgba(0, 122, 204, 0.22)), var(--vscode-list-hoverBackground, rgba(0, 122, 204, 0.22))), var(--vscode-editor-background, #1e1e1e)",
+        color: "var(--vscode-editor-foreground, #ffffff)",
+        fontWeight: "bold",
+        textAlign: "right",
+        userSelect: "none",
+        cursor: "pointer",
+        whiteSpace: "pre"
+    },
     bodyColRowNumberSelected: {
         position: "sticky",
         left: 0,
@@ -585,7 +635,22 @@ const styles: {[prop: string]: React.CSSProperties} = {
         border: "1px solid var(--vscode-foreground)",
         padding: "6px",
         whiteSpace: "pre",
-        cursor: "cell"
+        cursor: "cell",
+        backgroundColor: "transparent"
+    },
+    bodyColZebra: {
+        border: "1px solid var(--vscode-foreground)",
+        padding: "6px",
+        whiteSpace: "pre",
+        cursor: "cell",
+        backgroundColor: "var(--vscode-keybindingTable-rowsBackground, rgba(128, 128, 128, 0.05))"
+    },
+    bodyColRowOfCellSelected: {
+        border: "1px solid var(--vscode-foreground)",
+        padding: "6px",
+        whiteSpace: "pre",
+        cursor: "cell",
+        backgroundColor: "var(--vscode-list-hoverBackground, rgba(0, 122, 204, 0.16))"
     },
     bodyColRowSelected: {
         border: "1px solid var(--vscode-foreground)",

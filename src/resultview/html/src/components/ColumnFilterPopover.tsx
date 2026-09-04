@@ -11,13 +11,13 @@ interface Props {
 }
 
 const ColumnFilterPopover: React.FunctionComponent<Props> = (props) => {
-    const [operator, setOperator] = React.useState<string>(props.currentOperator || "equal");
+    const [operator, setOperator] = React.useState<string>(props.currentOperator || "contains");
     const [value, setValue] = React.useState<string>(props.currentValue || "");
 
     const inputRef = React.useRef<HTMLInputElement>(null);
 
     React.useEffect(() => {
-        setOperator(props.currentOperator || "equal");
+        setOperator(props.currentOperator || "contains");
         setValue(props.currentValue || "");
     }, [props.column, props.currentOperator, props.currentValue]);
 
@@ -81,9 +81,9 @@ const ColumnFilterPopover: React.FunctionComponent<Props> = (props) => {
                         onChange={(e) => setOperator(e.target.value)}
                     >
                         <option value="(default)">(default) - No filter</option>
+                        <option value="contains">Contains (LIKE %...%)</option>
                         <option value="equal">Equal (=)</option>
                         <option value="not equal">Not Equal (!=)</option>
-                        <option value="contains">Contains (LIKE %...%)</option>
                         <option value="starts with">Starts with (LIKE ...%)</option>
                         <option value="ends with">Ends with (LIKE %...)</option>
                         <option value="greater than">Greater than (&gt;)</option>
