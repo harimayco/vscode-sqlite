@@ -503,6 +503,97 @@ describe("ResultView Export & Display", () => {
         // cust_id was accurately detected and excluded from column & values list
         expect(openArgs.content).toContain("INSERT INTO clients (company) VALUES ('Acme Corp');");
     });
+
+    test("exports SQL with custom selected columns and multiValue from exportOptions", async () => {
+        const mockSend = jest.fn();
+        (resultView as any).send = mockSend;
+        (resultView as any).show = jest.fn();
+
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: jest.fn((key: string, defaultVal: any) => defaultVal)
+        });
+
+        const rs: Result[] = [{
+            stmt: "SELECT id, name, email, role FROM users;",
+            header: ["id", "name", "email", "role"],
+            rows: [
+                ["1", "Alice", "alice@example.com", "admin"],
+                ["2", "Bob", "bob@example.com", "user"]
+            ]
+        }];
+
+        resultView.display(Promise.resolve(rs), 50, "bottom");
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        const qId = mockSend.mock.calls[0][0].payload.queryId;
+
+        (resultView as any).handleMessage({
+            type: "EXPORT_RESULTS",
+            payload: {
+                queryId: qId,
+                result: 0,
+                format: "sql",
+                exportOptions: {
+                    columns: ["name", "email"],
+                    multiValue: true
+                }
+            }
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        expect(vscode.window.showQuickPick).not.toHaveBeenCalled();
+        expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(1);
+        const openArgs = (vscode.workspace.openTextDocument as jest.Mock).mock.calls[0][0];
+        expect(openArgs.content).toContain("INSERT INTO users (name, email) VALUES");
+        expect(openArgs.content).toContain("  ('Alice', 'alice@example.com'),");
+        expect(openArgs.content).toContain("  ('Bob', 'bob@example.com');");
+        expect(openArgs.content).not.toContain("role");
+        expect(openArgs.content).not.toContain("admin");
+    });
+
+    test("exports SQL with single-value statements when exportOptions specifies multiValue: false", async () => {
+        const mockSend = jest.fn();
+        (resultView as any).send = mockSend;
+        (resultView as any).show = jest.fn();
+
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: jest.fn((key: string, defaultVal: any) => defaultVal)
+        });
+
+        const rs: Result[] = [{
+            stmt: "SELECT id, name, email FROM users;",
+            header: ["id", "name", "email"],
+            rows: [["1", "Alice", "alice@example.com"]]
+        }];
+
+        resultView.display(Promise.resolve(rs), 50, "bottom");
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        const qId = mockSend.mock.calls[0][0].payload.queryId;
+
+        (resultView as any).handleMessage({
+            type: "EXPORT_RESULTS",
+            payload: {
+                queryId: qId,
+                result: 0,
+                format: "sql",
+                exportOptions: {
+                    columns: ["name"],
+                    multiValue: false
+                }
+            }
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(1);
+        const openArgs = (vscode.workspace.openTextDocument as jest.Mock).mock.calls[0][0];
+        expect(openArgs.content).toContain("INSERT INTO users (name) VALUES ('Alice');");
+        expect(openArgs.content).not.toContain("email");
+        expect(openArgs.content).not.toContain("alice@example.com");
+    });
 });
+
 
 

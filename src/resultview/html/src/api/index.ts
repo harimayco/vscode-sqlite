@@ -50,10 +50,16 @@ export class Api {
         });
     }
 
-    exportResults(format: "csv" | "html" | "json" | "sql" | string, result?: number, rows?: (string | number)[][], queryId?: string) {
+    exportResults(
+        format: "csv" | "html" | "json" | "sql" | string,
+        result?: number,
+        rows?: (string | number)[][],
+        queryId?: string,
+        exportOptions?: { columns?: string[]; multiValue?: boolean }
+    ) {
         this.vscodeApi.postMessage({
             type: "EXPORT_RESULTS",
-            payload: { result, format, rows, queryId },
+            payload: { result, format, rows, queryId, exportOptions },
         });
     }
 

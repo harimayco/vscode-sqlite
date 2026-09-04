@@ -260,21 +260,61 @@ export default class ResultView extends CustomView implements Disposable {
                 }
                 const tab = queryId ? this.queryTabs.find(t => t.queryId === queryId) : undefined;
                 const dbPath = tab ? tab.dbPath : undefined;
+                const exportOptions = message.payload.exportOptions;
 
                 const format = message.payload.format;
                 if (format === "csv") this.exportCsv(targetObj);
                 if (format === "html") this.exportHtml(targetObj);
                 if (format === "json") this.exportJson(targetObj);
-                if (format === "sql") this.exportSql(targetObj, dbPath);
+                if (format === "sql") this.exportSql(targetObj, dbPath, exportOptions);
                 break;
             }
         }
     }
 
-    private async exportSql(obj: Result | Array<Result>, dbPath?: string) {
+    private async exportSql(
+        obj: Result | Array<Result>,
+        dbPath?: string,
+        exportOptions?: { columns?: string[]; multiValue?: boolean }
+    ) {
         const config = workspace.getConfiguration('sqlite');
-        const style = config.get<string>('insertExportStyle', 'prompt');
         const batchSize = config.get<number>('insertExportBatchSize', 500);
+
+        // When exportOptions is provided from the UI modal, filter columns and export directly
+        if (exportOptions && (exportOptions.columns || typeof exportOptions.multiValue === "boolean")) {
+            let target = obj;
+            if (exportOptions.columns && exportOptions.columns.length > 0) {
+                const filterCols = new Set(exportOptions.columns);
+                const filterResult = (res: Result): Result => {
+                    const indices = res.header
+                        .map((col, idx) => ({ col, idx }))
+                        .filter(item => filterCols.has(item.col));
+                    const newHeader = indices.map(item => item.col);
+                    const newRows = res.rows.map(row => indices.map(item => row[item.idx]));
+                    return {
+                        stmt: res.stmt,
+                        header: newHeader,
+                        rows: newRows
+                    };
+                };
+
+                if (Array.isArray(obj)) {
+                    target = obj.map(filterResult);
+                } else {
+                    target = filterResult(obj);
+                }
+            }
+
+            const isMulti = typeof exportOptions.multiValue === "boolean" ? exportOptions.multiValue : true;
+            this.doExportSql(target, {
+                multiValue: isMulti,
+                batchSize: batchSize,
+                excludeId: false // User explicitly selected their columns in the modal
+            });
+            return;
+        }
+
+        const style = config.get<string>('insertExportStyle', 'prompt');
         const excludeIdConfig = config.get<boolean>('insertExportExcludeId', true);
 
         // Attempt database-level primary key / auto-increment inspection

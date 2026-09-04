@@ -19,7 +19,7 @@ interface Props {
         onChangeLimit?: (limit: number, saveAsDefault?: boolean) => void;
         onOpenSettings?: () => void;
     };
-    onToggleHidden: () => void;
+    onToggleHidden: (e?: React.MouseEvent<HTMLButtonElement>) => void;
     onExport: (format: "csv"|"html"|"json"|"sql") => void;
     onSql: () => void;
     onCopy?: (text: string) => void;

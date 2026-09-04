@@ -164,9 +164,9 @@ class App extends React.Component<Props, State> {
         this.props.api.clearAllQueries();
     }
 
-    private handleExport(format: string, index?: number, rows?: (string | number)[][]) {
+    private handleExport(format: string, index?: number, rows?: (string | number)[][], exportOptions?: { columns?: string[]; multiValue?: boolean }) {
         const activeTab = this.state.tabs.find(t => t.id === this.state.activeTabId);
-        this.props.api.exportResults(format, index, rows, activeTab ? activeTab.id : undefined);
+        this.props.api.exportResults(format, index, rows, activeTab ? activeTab.id : undefined, exportOptions);
     }
 
     private handleCopy(text: string) {

@@ -7,6 +7,7 @@ interface Props {
     columns: string[];
     rows: (string | number)[][];
     canFilter?: boolean;
+    hiddenColumns?: Set<string>;
     activeFilters?: { [column: string]: { operator: string; value: string } };
     onApplyFilter?: (column: string, operator: string, value: string) => void;
     onClearFilter?: (column: string) => void;
@@ -55,13 +56,17 @@ const Table: React.FunctionComponent<Props> = (props) => {
         if (selectedRows.size > 0) {
             const sortedIndices = Array.from(selectedRows).sort((a, b) => a - b);
             const lines: string[] = [];
+            const visibleIndices = props.columns
+                .map((col, idx) => ({ col, idx }))
+                .filter(({ col }) => !props.hiddenColumns || !props.hiddenColumns.has(col));
+
             if (includeHeaders) {
-                lines.push(props.columns.join("\t"));
+                lines.push(visibleIndices.map(v => v.col).join("\t"));
             }
             for (const idx of sortedIndices) {
                 const row = props.rows[idx];
                 if (row) {
-                    lines.push(row.join("\t"));
+                    lines.push(visibleIndices.map(v => row[v.idx]).join("\t"));
                 }
             }
             text = lines.join("\n");
@@ -75,13 +80,20 @@ const Table: React.FunctionComponent<Props> = (props) => {
             const minC = Math.min(...parsed.map(p => p.c));
             const maxC = Math.max(...parsed.map(p => p.c));
 
+            const visibleColsInRange: number[] = [];
+            for (let c = minC; c <= maxC; c++) {
+                if (!props.hiddenColumns || !props.hiddenColumns.has(props.columns[c])) {
+                    visibleColsInRange.push(c);
+                }
+            }
+
             const lines: string[] = [];
             if (includeHeaders) {
-                lines.push(props.columns.slice(minC, maxC + 1).join("\t"));
+                lines.push(visibleColsInRange.map(c => props.columns[c]).join("\t"));
             }
             for (let r = minR; r <= maxR; r++) {
                 const rowValues: string[] = [];
-                for (let c = minC; c <= maxC; c++) {
+                for (const c of visibleColsInRange) {
                     if (selectedCells.has(`${r},${c}`) && props.rows[r] && props.rows[r][c] !== undefined) {
                         rowValues.push(String(props.rows[r][c]));
                     } else {
@@ -317,6 +329,9 @@ const Table: React.FunctionComponent<Props> = (props) => {
                             #
                         </th>
                         {props.columns.map((col, i) => {
+                            if (props.hiddenColumns && props.hiddenColumns.has(col)) {
+                                return null;
+                            }
                             const activeFilter = props.activeFilters && props.activeFilters[col];
                             const isFiltered = Boolean(activeFilter && activeFilter.operator && activeFilter.operator !== "(default)");
                             return (
@@ -353,6 +368,9 @@ const Table: React.FunctionComponent<Props> = (props) => {
                                     {props.offset + i + 1}
                                 </td>
                                 {row.map((col, j) => {
+                                    if (props.hiddenColumns && props.hiddenColumns.has(props.columns[j])) {
+                                        return null;
+                                    }
                                     const isCellSelected = selectedCells.has(`${i},${j}`);
                                     let cellStyle = styles.bodyCol;
                                     if (isRowSelected) {
