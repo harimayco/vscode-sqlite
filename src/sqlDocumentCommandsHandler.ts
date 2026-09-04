@@ -1,4 +1,4 @@
-import { commands, ExtensionContext, Position, Uri } from "vscode";
+import { commands, ExtensionContext, languages, Position, Uri } from "vscode";
 import { Activatable } from "./activatable";
 import { Commands } from "./commands";
 import { Schema } from "./common";
@@ -60,6 +60,13 @@ export class SqlDocumentCommandsHandler
         );
         if (sqlDocument && dbPath) {
             this.sqlWorkspace.bindDatabaseToDocument(dbPath, sqlDocument);
+            if (
+                sqlDocument.isUntitled &&
+                sqlDocument.languageId !== "sqlite" &&
+                sqlDocument.languageId !== "sql"
+            ) {
+                languages.setTextDocumentLanguage(sqlDocument, "sqlite");
+            }
         }
         return dbPath;
     }

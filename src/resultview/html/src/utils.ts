@@ -44,3 +44,16 @@ export function isThemeLight() {
 export function isThemeDark() {
     return !isThemeLight();
 }
+
+export function extractTableName(stmt?: string): string {
+    if (!stmt) return "tableName";
+    const pattern = /\b(?:FROM|INTO)\s+(?:(?:\[([^\]]+)\]|`([^`]+)`|"([^"]+)"|'([^']+)'|([a-zA-Z0-9_$]+))\.)?(?:\[([^\]]+)\]|`([^`]+)`|"([^"]+)"|'([^']+)'|([a-zA-Z0-9_$]+))/i;
+    const match = pattern.exec(stmt);
+    if (match) {
+        const table = match[6] || match[7] || match[8] || match[9] || match[10]
+            || match[1] || match[2] || match[3] || match[4] || match[5];
+        if (table) return table;
+    }
+    return "tableName";
+}
+

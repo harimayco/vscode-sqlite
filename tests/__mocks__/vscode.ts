@@ -117,4 +117,5 @@ export namespace TreeItemCollapsibleState {
 
 export namespace languages {
     export const registerCompletionItemProvider = jest.fn();
+    export const setTextDocumentLanguage = jest.fn();
 }

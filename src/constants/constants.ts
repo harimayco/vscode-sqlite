@@ -10,5 +10,7 @@ export namespace Constants {
     export const outputChannelName: string = `${extensionDisplayName}`;
 
     /* explorer */
-    export const sqliteExplorerViewId = pkg.contributes.views.explorer[0].id;
+    export const sqliteExplorerViewId = pkg.contributes.views["sqlite-explorer"]
+        ? pkg.contributes.views["sqlite-explorer"][0].id
+        : (pkg.contributes.views.explorer ? pkg.contributes.views.explorer[0].id : "sqlite.explorer");
 }

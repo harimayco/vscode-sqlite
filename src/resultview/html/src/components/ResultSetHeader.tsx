@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Pager } from "./Base";
+import { Button, Icons, Pager } from "./Base";
 import BtnShowHide from "./BtnShowHide";
 import BtnExportJson from "./BtnExportJson";
 import BtnExportHtml from "./BtnExportHtml";
@@ -16,17 +16,35 @@ interface Props {
         offset: number;
         limit: number;
         onPage?: (offset: number, limit: number) => void;
+        onChangeLimit?: (limit: number, saveAsDefault?: boolean) => void;
+        onOpenSettings?: () => void;
     };
-    onToggleHidden: () => void;
+    onToggleHidden: (e?: React.MouseEvent<HTMLButtonElement>) => void;
     onExport: (format: "csv"|"html"|"json"|"sql") => void;
     onSql: () => void;
+    onCopy?: (text: string) => void;
 }
 
 const ResultSetHeader: React.FunctionComponent<Props> = (props) => {
     return (
         <div style={styles.header}>
             <div style={styles.row}>
-                <BtnSql onClick={() => props.onSql()}/>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "2px" }}>
+                    <BtnSql onClick={() => props.onSql()}/>
+                    <Button
+                        title="Copy SQL Query"
+                        onClick={() => {
+                            if (navigator.clipboard && navigator.clipboard.writeText) {
+                                navigator.clipboard.writeText(props.statement).catch(() => {});
+                            }
+                            if (props.onCopy) {
+                                props.onCopy(props.statement);
+                            }
+                        }}
+                    >
+                        <Icons.Copy />
+                    </Button>
+                </div>
                 <Pager {...props.pager}/>
                 <div>
                     <BtnExportCsv onClick={() => props.onExport("csv")}/>
@@ -37,7 +55,7 @@ const ResultSetHeader: React.FunctionComponent<Props> = (props) => {
                 </div>
             </div>
             {props.showStatement && <div style={styles.row}>
-                <Statement value={props.statement} />
+                <Statement value={props.statement} onCopy={props.onCopy} />
             </div>}
         </div>
     );

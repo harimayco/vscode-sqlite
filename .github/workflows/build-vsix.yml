@@ -65,6 +65,7 @@ jobs:
         run: |
           npx jest tests/unit/utils/sqlExport.test.ts
           npx jest tests/unit/utils/utils.test.ts
+          npx jest tests/unit/resultview/resultview.test.ts
 
       - name: Package VSIX
         run: npm run package

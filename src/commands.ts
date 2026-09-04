@@ -1,5 +1,6 @@
 export namespace Commands {
     export const showOutputChannel = "sqlite.showOutputChannel";
+    export const runQuery = "sqlite.runQuery";
     export const runDocumentQuery = "sqlite.runDocumentQuery";
     export const runSelectedQuery = "sqlite.runSelectedQuery";
     export const useDatabase = 'sqlite.useDatabase';

@@ -1,4 +1,4 @@
-import { commands, ExtensionContext, Position, Range } from "vscode";
+import { commands, ExtensionContext, languages, Position, Range } from "vscode";
 import { Activatable } from "./activatable";
 import { Commands } from "./commands";
 import { Schema } from "./common";
@@ -26,6 +26,7 @@ export class RunQueryCommandsHandler
     private recordsPerPage: number;
     private databaseExtensions: string[];
     private setupDatabaseConfig: { [dbPath: string]: { sql: string[] } };
+    private resultViewPosition: string;
 
     constructor(
         sqlWorkspace: SqlWorkspace,
@@ -33,7 +34,8 @@ export class RunQueryCommandsHandler
         resultView: ResultView,
         recordsPerPage: number,
         databaseExtensions: string[],
-        setupDatabaseConfig: { [dbPath: string]: { sql: string[] } }
+        setupDatabaseConfig: { [dbPath: string]: { sql: string[] } },
+        resultViewPosition: string = "beside"
     ) {
         this.sqlWorkspace = sqlWorkspace;
         this.sqlite = sqlite;
@@ -41,16 +43,23 @@ export class RunQueryCommandsHandler
         this.recordsPerPage = recordsPerPage;
         this.databaseExtensions = databaseExtensions;
         this.setupDatabaseConfig = setupDatabaseConfig;
+        this.resultViewPosition = resultViewPosition;
     }
 
     onConfigurationChange(configuration: Configuration): void {
         this.recordsPerPage = configuration.recordsPerPage;
         this.databaseExtensions = configuration.databaseExtensions;
         this.setupDatabaseConfig = configuration.setupDatabase;
+        this.resultViewPosition = configuration.resultViewPosition;
     }
 
     activate(extensionContext: ExtensionContext): void {
         extensionContext.subscriptions.push(
+            commands.registerCommand(
+                Commands.runQuery,
+                this.onRunQuery,
+                this
+            ),
             commands.registerCommand(
                 Commands.runDocumentQuery,
                 this.onRunDocumentQuery,
@@ -83,6 +92,45 @@ export class RunQueryCommandsHandler
         //
     }
 
+    private onRunQuery() {
+        const sqlDocument = getEditorSqlDocument();
+        if (!sqlDocument) return;
+        const dbPath = this.sqlWorkspace.getDocumentDatabase(sqlDocument);
+        if (dbPath) {
+            if (
+                sqlDocument.isUntitled &&
+                sqlDocument.languageId !== "sqlite" &&
+                sqlDocument.languageId !== "sql"
+            ) {
+                languages.setTextDocumentLanguage(sqlDocument, "sqlite");
+            }
+            const selection = getEditorSelection();
+            let query = "";
+            if (selection && !selection.isEmpty) {
+                query = sqlDocument.getText(selection);
+            } else {
+                query = sqlDocument.getText();
+            }
+            if (query.trim() !== "") {
+                this.runQuery(dbPath, query);
+            } else {
+                let message = `No query to run.`;
+                showErrorMessage(message, {
+                    title: "Show output",
+                    command: Commands.showOutputChannel,
+                });
+            }
+        } else {
+            commands
+                .executeCommand(Commands.useDatabase)
+                .then((selectedDb) => {
+                    if (selectedDb) {
+                        this.onRunQuery();
+                    }
+                });
+        }
+    }
+
     private onRunDocumentQuery() {
         const sqlDocument = getEditorSqlDocument();
         if (!sqlDocument) return;
@@ -93,7 +141,11 @@ export class RunQueryCommandsHandler
         } else {
             commands
                 .executeCommand(Commands.useDatabase)
-                .then(() => this.onRunDocumentQuery());
+                .then((selectedDb) => {
+                    if (selectedDb) {
+                        this.onRunDocumentQuery();
+                    }
+                });
         }
     }
 
@@ -143,13 +195,17 @@ export class RunQueryCommandsHandler
         } else {
             commands
                 .executeCommand(Commands.useDatabase)
-                .then(() => this.onRunSelectedQuery());
+                .then((selectedDb) => {
+                    if (selectedDb) {
+                        this.onRunSelectedQuery();
+                    }
+                });
         }
     }
 
     private onRunTableQuery(table: Schema.Table) {
         let query = `SELECT * FROM ${sqlSafeName(table.name)};`;
-        this.runQuery(table.database, query);
+        this.runQuery(table.database, query, { isView: table.type === "view" });
     }
 
     private onRunSqliteMasterQuery(database: Schema.Database) {
@@ -169,7 +225,7 @@ export class RunQueryCommandsHandler
         );
     }
 
-    private runQuery(dbPath: string, query: string) {
+    private runQuery(dbPath: string, query: string, queryOptions?: { isView?: boolean }) {
         let resultSet = this.sqlite
             .query(
                 dbPath,
@@ -188,6 +244,6 @@ export class RunQueryCommandsHandler
 
                 return resultSet;
             });
-        this.resultView.display(resultSet, this.recordsPerPage);
+        this.resultView.display(resultSet, this.recordsPerPage, this.resultViewPosition, { ...queryOptions, dbPath });
     }
 }

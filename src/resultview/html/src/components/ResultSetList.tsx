@@ -1,11 +1,15 @@
 import * as React from "react";
 import ResultSet from "./ResultSet";
-import { ResultSetData } from "../api";
+import { ColumnFilter, ResultSetData } from "../api";
 
 interface Props {
     list: Array<ResultSetData>;
-    onExport: (format: string, result: number) => void;
+    onExport: (format: string, result: number, rows?: (string | number)[][], exportOptions?: { columns?: string[]; multiValue?: boolean }) => void;
     onRows: (offset: number, limit: number, result: number) => void;
+    onChangeLimit?: (limit: number, result: number, saveAsDefault?: boolean) => void;
+    onOpenSettings?: () => void;
+    onApplyFilter?: (filters: ColumnFilter[], resultIndex: number) => void;
+    onCopy?: (text: string) => void;
 }
 
 const ResultSetList: React.FunctionComponent<Props> = (props) => {
@@ -14,8 +18,12 @@ const ResultSetList: React.FunctionComponent<Props> = (props) => {
             {props.list.map((item, index) => (
                 <ResultSet
                     key={index} {...item}
-                    onExport={(format) => props.onExport(format, index)}
+                    onExport={(format, rows, exportOptions) => props.onExport(format, index, rows, exportOptions)}
                     onRows={(offset, limit) => props.onRows(offset, limit, index)}
+                    onChangeLimit={(limit, saveAsDefault) => props.onChangeLimit && props.onChangeLimit(limit, index, saveAsDefault)}
+                    onOpenSettings={props.onOpenSettings}
+                    onApplyFilter={(filters) => props.onApplyFilter && props.onApplyFilter(filters, index)}
+                    onCopy={props.onCopy}
                 />
             ))}
         </div>

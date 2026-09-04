@@ -1,6 +1,19 @@
 # Change Log
 
-## 0.14.1 (04 Jun 2022)
+## 0.14.1
+
+Added
+
+1. **Editor Toolbar Run Query Button**: Play button in the editor navigation title bar (`editor/title`) to execute the selected query or the full document with a single click.
+2. **Multi-Tab Results View**: Query results open in separate tabs within the bottom result view panel with tab switching, individual tab close buttons, middle-click to close, "Close Other Tabs", and "Close All Tabs" context menu actions.
+3. **First & Last Page Pagination**: Fast navigation buttons (⏮ and ⏭) in the result view pager to jump straight to the first or last page of results.
+4. **Extension Settings Shortcut**: Settings gear button (`⚙️`) in the result view toolbar that opens VS Code's extension settings directly for SQLite (`@ext:alexcvzz.vscode-sqlite`).
+5. **Interactive Column Header Filters**: Funnel filter icon in table column headers for simple `SELECT` queries with conditions (`Contains` by default, `Equal`, `Not Equal`, `Starts With`, `Ends With`, `>`, `<`, `>=`, `<=`, `Is NULL`, `Is NOT NULL`), live row filtering, and automatic SQL statement `WHERE` clause synchronization.
+6. **Copy SQL Query Buttons**: Dedicated 1-click copy buttons in the result view toolbar and inside the expandable SQL statement viewer with visual confirmation.
+7. **SQL INSERT Export Modal & Auto-Increment ID Exclusion**: Popup modal before exporting to SQL with column checkboxes, automatic detection and exclusion of primary key auto-increment ID columns (via SQLite PRAGMA table info and DDL inspection), and format toggle between multi-row batch insert (default) and single-row statements.
+8. **Searchable Column Show / Hide**: Searchable popover dialog accessible from the toolbar eye button to quickly toggle column visibility with real-time column search and visible column counter.
+9. **Dedicated Activity Bar Section & Add DB Button**: SQLite Explorer is now a dedicated section in the main left VS Code Activity Bar with a title bar Add Database (`+`) button to easily open databases even when one or more databases are already open.
+10. **Striped Zebra Table & Active Row Highlight**: Alternating zebra striping on table rows and full row highlight whenever a cell is selected while keeping the active cell distinctly outlined.
 
 Fixed
 

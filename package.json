@@ -25,7 +25,11 @@
         "onCommand:sqlite.newQuery",
         "onCommand:sqlite.quickQuery",
         "onCommand:sqlite.useDatabase",
-        "onCommand:sqlite.runDocumentQuery"
+        "onCommand:sqlite.runDocumentQuery",
+        "onCommand:sqlite.runSelectedQuery",
+        "onCommand:sqlite.runQuery",
+        "onView:sqlite.explorer",
+        "onView:sqlite.resultView"
     ],
     "main": "./dist/extension",
     "contributes": {
@@ -43,7 +47,11 @@
             {
                 "command": "sqlite.explorer.add",
                 "title": "Open Database",
-                "category": "SQLite"
+                "category": "SQLite",
+                "icon": {
+                    "light": "resources/light/add.svg",
+                    "dark": "resources/dark/add.svg"
+                }
             },
             {
                 "command": "sqlite.explorer.remove",
@@ -108,8 +116,14 @@
                 "category": "SQLite"
             },
             {
-                "command": "sqlite.runDocumentQuery",
+                "command": "sqlite.runQuery",
                 "title": "Run Query",
+                "category": "SQLite",
+                "icon": "$(play)"
+            },
+            {
+                "command": "sqlite.runDocumentQuery",
+                "title": "Run Document Query",
                 "category": "SQLite"
             },
             {
@@ -138,22 +152,50 @@
         ],
         "keybindings": [
             {
-                "command": "sqlite.runDocumentQuery",
+                "command": "sqlite.runQuery",
                 "key": "ctrl+shift+q",
                 "mac": "cmd+shift+q",
-                "when": "editorLangId =~ /(sql|sqlite)/"
+                "when": "editorLangId =~ /(sql|sqlite)/ || resourceScheme == 'untitled'"
             }
         ],
-        "views": {
-            "explorer": [
+        "viewsContainers": {
+            "activitybar": [
                 {
-                    "id": "sqlite.explorer",
-                    "name": "SQLite Explorer",
-                    "when": "sqlite.explorer.show",
+                    "id": "sqlite-explorer",
+                    "title": "SQLite",
+                    "icon": "resources/dark/database.svg"
+                }
+            ],
+            "panel": [
+                {
+                    "id": "sqlite-panel",
+                    "title": "SQLite",
                     "icon": "resources/dark/database.svg"
                 }
             ]
         },
+        "views": {
+            "sqlite-explorer": [
+                {
+                    "id": "sqlite.explorer",
+                    "name": "SQLite Explorer",
+                    "icon": "resources/dark/database.svg"
+                }
+            ],
+            "sqlite-panel": [
+                {
+                    "type": "webview",
+                    "id": "sqlite.resultView",
+                    "name": "SQLite Results"
+                }
+            ]
+        },
+        "viewsWelcome": [
+            {
+                "view": "sqlite.explorer",
+                "contents": "No SQLite databases open.\n[Open Database](command:sqlite.explorer.add)"
+            }
+        ],
         "menus": {
             "commandPalette": [
                 {
@@ -183,18 +225,23 @@
                     "group": "sqlite"
                 },
                 {
+                    "command": "sqlite.runQuery",
+                    "when": "editorLangId =~ /(sql|sqlite)/ || resourceScheme == 'untitled'",
+                    "group": "sqlite"
+                },
+                {
                     "command": "sqlite.runDocumentQuery",
-                    "when": "editorLangId =~ /(sql|sqlite)/",
+                    "when": "editorLangId =~ /(sql|sqlite)/ || resourceScheme == 'untitled'",
                     "group": "sqlite"
                 },
                 {
                     "command": "sqlite.runSelectedQuery",
-                    "when": "editorLangId =~ /(sql|sqlite)/",
+                    "when": "editorLangId =~ /(sql|sqlite)/ || resourceScheme == 'untitled'",
                     "group": "sqlite"
                 },
                 {
                     "command": "sqlite.useDatabase",
-                    "when": "editorLangId =~ /(sql|sqlite)/",
+                    "when": "editorLangId =~ /(sql|sqlite)/ || resourceScheme == 'untitled'",
                     "group": "sqlite"
                 },
                 {
@@ -231,6 +278,13 @@
                     "when": "false"
                 }
             ],
+            "editor/title": [
+                {
+                    "command": "sqlite.runQuery",
+                    "when": "editorLangId =~ /(sql|sqlite)/ || resourceScheme == 'untitled'",
+                    "group": "navigation"
+                }
+            ],
             "explorer/context": [
                 {
                     "command": "sqlite.explorer.add",
@@ -245,22 +299,32 @@
             ],
             "editor/context": [
                 {
-                    "when": "editorTextFocus && editorLangId =~ /(sql|sqlite)/",
+                    "when": "editorTextFocus && (editorLangId =~ /(sql|sqlite)/ || resourceScheme == 'untitled')",
+                    "command": "sqlite.runQuery",
+                    "group": "9.1_sqlite@0"
+                },
+                {
+                    "when": "editorTextFocus && (editorLangId =~ /(sql|sqlite)/ || resourceScheme == 'untitled')",
                     "command": "sqlite.runDocumentQuery",
                     "group": "9.1_sqlite@1"
                 },
                 {
-                    "when": "editorTextFocus && editorLangId =~ /(sql|sqlite)/",
+                    "when": "editorTextFocus && (editorLangId =~ /(sql|sqlite)/ || resourceScheme == 'untitled')",
                     "command": "sqlite.runSelectedQuery",
                     "group": "9.1_sqlite@2"
                 },
                 {
-                    "when": "editorTextFocus && editorLangId =~ /(sql|sqlite)/",
+                    "when": "editorTextFocus && (editorLangId =~ /(sql|sqlite)/ || resourceScheme == 'untitled')",
                     "command": "sqlite.useDatabase",
                     "group": "9.1_sqlite@3"
                 }
             ],
             "view/title": [
+                {
+                    "command": "sqlite.explorer.add",
+                    "when": "view == sqlite.explorer",
+                    "group": "navigation@0"
+                },
                 {
                     "command": "sqlite.newQuery",
                     "when": "view == sqlite.explorer",
@@ -273,6 +337,11 @@
                 }
             ],
             "view/item/context": [
+                {
+                    "command": "sqlite.explorer.add",
+                    "when": "view == sqlite.explorer && viewItem == sqlite.databaseItem",
+                    "group": "0_add@1"
+                },
                 {
                     "command": "sqlite.newQuery",
                     "when": "view == sqlite.explorer && viewItem == sqlite.databaseItem",
@@ -429,6 +498,37 @@
                     },
                     "default": {},
                     "description": "SQL query to execute every time a database is opened."
+                },
+                "sqlite.insertExportStyle": {
+                    "type": "string",
+                    "enum": [
+                        "prompt",
+                        "single",
+                        "multi"
+                    ],
+                    "default": "prompt",
+                    "description": "Format for INSERT INTO SQL exports: 'prompt' (choose every time), 'single' (one statement per row), or 'multi' (batch VALUES (...), (...))."
+                },
+                "sqlite.insertExportBatchSize": {
+                    "type": "number",
+                    "default": 500,
+                    "minimum": 1,
+                    "description": "Maximum number of rows per batch in multi-value INSERT INTO SQL exports."
+                },
+                "sqlite.insertExportExcludeId": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Exclude primary key / auto-increment ID column (e.g. 'id', '<table_name>_id', 'rowid') from exported INSERT INTO SQL statements."
+                },
+                "sqlite.resultViewPosition": {
+                    "type": "string",
+                    "enum": [
+                        "bottom",
+                        "beside",
+                        "current"
+                    ],
+                    "default": "bottom",
+                    "description": "Where to display the SQLite Result View: 'bottom' (native bottom panel alongside Terminal), 'beside' (side editor group), or 'current' (active editor group)."
                 }
             }
         }
