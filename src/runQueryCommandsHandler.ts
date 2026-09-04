@@ -205,7 +205,7 @@ export class RunQueryCommandsHandler
 
     private onRunTableQuery(table: Schema.Table) {
         let query = `SELECT * FROM ${sqlSafeName(table.name)};`;
-        this.runQuery(table.database, query);
+        this.runQuery(table.database, query, { isView: table.type === "view" });
     }
 
     private onRunSqliteMasterQuery(database: Schema.Database) {
@@ -225,7 +225,7 @@ export class RunQueryCommandsHandler
         );
     }
 
-    private runQuery(dbPath: string, query: string) {
+    private runQuery(dbPath: string, query: string, queryOptions?: { isView?: boolean }) {
         let resultSet = this.sqlite
             .query(
                 dbPath,
@@ -244,6 +244,6 @@ export class RunQueryCommandsHandler
 
                 return resultSet;
             });
-        this.resultView.display(resultSet, this.recordsPerPage, this.resultViewPosition);
+        this.resultView.display(resultSet, this.recordsPerPage, this.resultViewPosition, queryOptions);
     }
 }

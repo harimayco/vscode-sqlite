@@ -1,6 +1,5 @@
 import * as React from "react";
 import { Button, Icons } from "../Base";
-import ConfigModal from "../ConfigModal";
 
 interface Props {
     total: number; // total number of records
@@ -8,19 +7,17 @@ interface Props {
     limit: number; // limit per page
     onPage?: (offset: number, limit: number) => void;
     onChangeLimit?: (limit: number, saveAsDefault?: boolean) => void;
+    onOpenSettings?: () => void;
 }
 
 interface State {
-    showConfigModal: boolean;
 }
 
 class Pager extends React.Component<Props, State> {
 
     constructor(props: Props) {
         super(props);
-        this.state = {
-            showConfigModal: false,
-        };
+        this.state = {};
     }
 
     render() {
@@ -96,8 +93,12 @@ class Pager extends React.Component<Props, State> {
                             </td>
                             <td>
                                 <Button
-                                    title="Configure Pagination Limit"
-                                    onClick={() => this.setState({ showConfigModal: true })}
+                                    title="Open SQLite Extension Settings"
+                                    onClick={() => {
+                                        if (this.props.onOpenSettings) {
+                                            this.props.onOpenSettings();
+                                        }
+                                    }}
                                 >
                                     <Icons.Gear />
                                 </Button>
@@ -105,18 +106,6 @@ class Pager extends React.Component<Props, State> {
                         </tr>
                     </tbody>
                 </table>
-
-                <ConfigModal
-                    isOpen={this.state.showConfigModal}
-                    currentLimit={this.props.limit}
-                    totalRecords={this.props.total}
-                    onClose={() => this.setState({ showConfigModal: false })}
-                    onApply={(newLimit, saveAsDefault) => {
-                        if (this.props.onChangeLimit) {
-                            this.props.onChangeLimit(newLimit, saveAsDefault);
-                        }
-                    }}
-                />
             </div>
         );
     }

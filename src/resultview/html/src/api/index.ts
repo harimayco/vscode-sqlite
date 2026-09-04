@@ -1,10 +1,18 @@
 import VsCodeApi from "./vscodeapi";
 
+export interface ColumnFilter {
+    column: string;
+    operator: string;
+    value: string;
+}
+
 export interface ResultSetData {
     id: number;
     statement: string;
     columns: string[];
     size: number;
+    canFilter?: boolean;
+    filters?: ColumnFilter[];
     rows: RowsData;
 }
 
@@ -69,6 +77,12 @@ export class Api {
         });
     }
 
+    openSettings() {
+        this.vscodeApi.postMessage({
+            type: "OPEN_SETTINGS",
+        });
+    }
+
     copyToClipboard(text: string) {
         this.vscodeApi.postMessage({
             type: "COPY_TO_CLIPBOARD",
@@ -102,9 +116,33 @@ export class Api {
         });
     }
 
+    applyFilter(queryId: string, result: number, filters: ColumnFilter[]) {
+        this.vscodeApi.postMessage({
+            type: "APPLY_FILTER",
+            payload: { queryId, result, filters }
+        });
+    }
+
     onRows(callback: (rows: RowsData) => void) {
         this.vscodeApi.onMessage((message) => {
             if (message.type === "FETCH_ROWS") {
+                callback(message.payload);
+            }
+        });
+    }
+
+    onUpdateFilterResults(callback: (payload: {
+        queryId: string;
+        result: number;
+        statement: string;
+        size: number;
+        rows: string[][];
+        offset: number;
+        limit: number;
+        filters: ColumnFilter[];
+    }) => void) {
+        this.vscodeApi.onMessage((message) => {
+            if (message.type === "UPDATE_FILTER_RESULTS") {
                 callback(message.payload);
             }
         });

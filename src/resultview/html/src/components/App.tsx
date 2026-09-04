@@ -1,10 +1,8 @@
 import * as React from "react";
 import produce from "immer";
-import { Api, QueryResultPayload, RowsData } from "../api";
+import { Api, ColumnFilter, QueryResultPayload, RowsData } from "../api";
 import TabBar, { QueryTabItem } from "./TabBar";
 import ResultSetList from "./ResultSetList";
-
-import ConfigModal from "./ConfigModal";
 
 interface Props {
     api: Api;
@@ -13,7 +11,6 @@ interface Props {
 interface State {
     tabs: Array<QueryTabItem>;
     activeTabId: string;
-    showGlobalConfig: boolean;
 }
 
 class App extends React.Component<Props, State> {
@@ -23,7 +20,6 @@ class App extends React.Component<Props, State> {
         this.state = {
             tabs: [],
             activeTabId: "",
-            showGlobalConfig: false,
         };
     }
 
@@ -73,13 +69,32 @@ class App extends React.Component<Props, State> {
             this.setState(state);
         });
 
+        this.props.api.onUpdateFilterResults((payload) => {
+            const state = produce(this.state, (draftState) => {
+                const targetTab = draftState.tabs.find(t => t.id === payload.queryId);
+                if (targetTab && targetTab.results[payload.result]) {
+                    targetTab.statement = payload.statement;
+                    const res = targetTab.results[payload.result];
+                    res.statement = payload.statement;
+                    res.size = payload.size;
+                    res.filters = payload.filters;
+                    res.rows = {
+                        result: payload.result,
+                        rows: payload.rows,
+                        offset: payload.offset,
+                        limit: payload.limit,
+                        queryId: payload.queryId,
+                    };
+                }
+            });
+            this.setState(state);
+        });
+
         this.props.api.fetchResults();
     }
 
     render() {
         const activeTab = this.state.tabs.find(t => t.id === this.state.activeTabId);
-        const currentLimit = activeTab && activeTab.results[0] && activeTab.results[0].rows ? activeTab.results[0].rows.limit : 50;
-        const totalRecords = activeTab ? activeTab.results.reduce((s, r) => s + (r.size || 0), 0) : undefined;
 
         return (
             <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%" }}>
@@ -92,7 +107,7 @@ class App extends React.Component<Props, State> {
                     onSelectTab={this.handleSelectTab.bind(this)}
                     onCloseTab={this.handleCloseTab.bind(this)}
                     onClearAll={this.handleClearAll.bind(this)}
-                    onOpenConfig={() => this.setState({ showGlobalConfig: true })}
+                    onOpenSettings={() => this.props.api.openSettings()}
                     onExport={this.handleExport.bind(this)}
                 />
                 {activeTab ? (
@@ -102,6 +117,8 @@ class App extends React.Component<Props, State> {
                         onExport={this.handleExport.bind(this)}
                         onRows={this.handleRows.bind(this)}
                         onChangeLimit={this.handleChangeLimit.bind(this)}
+                        onOpenSettings={() => this.props.api.openSettings()}
+                        onApplyFilter={this.handleApplyFilter.bind(this)}
                         onCopy={this.handleCopy.bind(this)}
                     />
                 ) : (
@@ -115,15 +132,6 @@ class App extends React.Component<Props, State> {
                         </div>
                     </div>
                 )}
-                <ConfigModal
-                    isOpen={this.state.showGlobalConfig}
-                    currentLimit={currentLimit}
-                    totalRecords={totalRecords}
-                    onClose={() => this.setState({ showGlobalConfig: false })}
-                    onApply={(newLimit, saveAsDefault) => {
-                        this.handleChangeLimit(newLimit, undefined, saveAsDefault);
-                    }}
-                />
             </div>
         );
     }
@@ -183,6 +191,13 @@ class App extends React.Component<Props, State> {
         }
         if (saveAsDefault) {
             this.props.api.updateConfig({ recordsPerPage: limit });
+        }
+    }
+
+    private handleApplyFilter(filters: ColumnFilter[], resultIndex: number) {
+        const activeTab = this.state.tabs.find(t => t.id === this.state.activeTabId);
+        if (activeTab) {
+            this.props.api.applyFilter(activeTab.id, resultIndex, filters);
         }
     }
 }

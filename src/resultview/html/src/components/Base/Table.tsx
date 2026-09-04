@@ -1,9 +1,15 @@
 import * as React from "react";
+import * as Icons from "./Icons";
+import ColumnFilterPopover from "../ColumnFilterPopover";
 
 interface Props {
     offset: number;
     columns: string[];
     rows: (string | number)[][];
+    canFilter?: boolean;
+    activeFilters?: { [column: string]: { operator: string; value: string } };
+    onApplyFilter?: (column: string, operator: string, value: string) => void;
+    onClearFilter?: (column: string) => void;
     onExportSelected?: (format: string, rows: (string | number)[][]) => void;
     onCopy?: (text: string) => void;
 }
@@ -23,6 +29,12 @@ const Table: React.FunctionComponent<Props> = (props) => {
     const [dragStart, setDragStart] = React.useState<{ r: number; c: number } | null>(null);
     const [isDragging, setIsDragging] = React.useState<boolean>(false);
     const [contextMenu, setContextMenu] = React.useState<ContextMenuState>({ visible: false, x: 0, y: 0 });
+    const [filterPopover, setFilterPopover] = React.useState<{
+        visible: boolean;
+        column: string;
+        x: number;
+        y: number;
+    }>({ visible: false, column: "", x: 0, y: 0 });
 
     const containerRef = React.useRef<HTMLDivElement>(null);
 
@@ -275,6 +287,18 @@ const Table: React.FunctionComponent<Props> = (props) => {
         setContextMenu({ visible: false, x: 0, y: 0 });
     };
 
+    const handleFilterButtonClick = (e: React.MouseEvent, column: string) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        setFilterPopover({
+            visible: true,
+            column,
+            x: rect.left,
+            y: rect.bottom + 4,
+        });
+    };
+
     return (
         <div
             ref={containerRef}
@@ -292,9 +316,27 @@ const Table: React.FunctionComponent<Props> = (props) => {
                         >
                             #
                         </th>
-                        {props.columns.map((col, i) => (
-                            <th key={i} style={styles.headCol}>{col}</th>
-                        ))}
+                        {props.columns.map((col, i) => {
+                            const activeFilter = props.activeFilters && props.activeFilters[col];
+                            const isFiltered = Boolean(activeFilter && activeFilter.operator && activeFilter.operator !== "(default)");
+                            return (
+                                <th key={i} style={styles.headCol}>
+                                    <div style={styles.headColWrapper}>
+                                        <span style={styles.headColText}>{col}</span>
+                                        {props.canFilter && (
+                                            <button
+                                                type="button"
+                                                style={isFiltered ? styles.filterBtnActive : styles.filterBtn}
+                                                onClick={(e) => handleFilterButtonClick(e, col)}
+                                                title={isFiltered ? `Filtered by ${col} (${activeFilter?.operator}: ${activeFilter?.value})` : `Filter by ${col}`}
+                                            >
+                                                <Icons.Filter filled={isFiltered} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </th>
+                            );
+                        })}
                     </tr>
                 </thead>
                 <tbody>
@@ -402,6 +444,26 @@ const Table: React.FunctionComponent<Props> = (props) => {
                         />
                     </div>
                 </>
+            )}
+
+            {filterPopover.visible && (
+                <ColumnFilterPopover
+                    column={filterPopover.column}
+                    currentOperator={props.activeFilters && props.activeFilters[filterPopover.column]?.operator}
+                    currentValue={props.activeFilters && props.activeFilters[filterPopover.column]?.value}
+                    position={{ x: filterPopover.x, y: filterPopover.y }}
+                    onApply={(op, val) => {
+                        if (props.onApplyFilter) {
+                            props.onApplyFilter(filterPopover.column, op, val);
+                        }
+                    }}
+                    onClear={() => {
+                        if (props.onClearFilter) {
+                            props.onClearFilter(filterPopover.column);
+                        }
+                    }}
+                    onClose={() => setFilterPopover({ visible: false, column: "", x: 0, y: 0 })}
+                />
             )}
         </div>
     );
@@ -560,5 +622,40 @@ const styles: {[prop: string]: React.CSSProperties} = {
         height: "1px",
         backgroundColor: "var(--vscode-menu-separatorBackground, #454545)",
         margin: "4px 0"
+    },
+    headColWrapper: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "6px",
+    },
+    headColText: {
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+    },
+    filterBtn: {
+        background: "transparent",
+        border: "none",
+        padding: "1px 2px",
+        cursor: "pointer",
+        opacity: 0.5,
+        borderRadius: "2px",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        outline: "none",
+    },
+    filterBtnActive: {
+        background: "var(--vscode-badge-background, rgba(0, 122, 204, 0.25))",
+        border: "1px solid var(--vscode-focusBorder, #007acc)",
+        padding: "0 2px",
+        cursor: "pointer",
+        opacity: 1,
+        borderRadius: "2px",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        outline: "none",
     }
 };

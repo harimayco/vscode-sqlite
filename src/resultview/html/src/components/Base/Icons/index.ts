@@ -8,5 +8,7 @@ import ExportHtml from "./ExportHtml";
 import ExportSql from "./ExportSql";
 import Eye from "./Eye";
 import Gear from "./Gear";
+import Filter from "./Filter";
+import Copy from "./Copy";
 
-export { ArrowFirst, ArrowLeft, ArrowRight, ArrowLast, ExportCsv, ExportHtml, ExportJson, ExportSql, Eye, Gear };
+export { ArrowFirst, ArrowLeft, ArrowRight, ArrowLast, ExportCsv, ExportHtml, ExportJson, ExportSql, Eye, Gear, Filter, Copy };

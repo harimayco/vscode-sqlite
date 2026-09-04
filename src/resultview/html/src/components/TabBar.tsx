@@ -20,7 +20,7 @@ interface Props {
     onSelectTab: (tabId: string) => void;
     onCloseTab: (tabId: string) => void;
     onClearAll: () => void;
-    onOpenConfig?: () => void;
+    onOpenSettings?: () => void;
     onExport: (format: "csv" | "html" | "json" | "sql") => void;
 }
 
@@ -73,12 +73,12 @@ const TabBar: React.FunctionComponent<Props> = (props) => {
 
             {props.tabs.length > 0 && (
                 <div style={styles.actions}>
-                    {props.onOpenConfig && (
+                    {props.onOpenSettings && (
                         <button
                             type="button"
                             style={styles.configBtn}
-                            onClick={props.onOpenConfig}
-                            title="Configure Pagination Limit"
+                            onClick={props.onOpenSettings}
+                            title="Open SQLite Extension Settings"
                         >
                             <Icons.Gear />
                         </button>

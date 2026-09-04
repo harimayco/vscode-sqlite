@@ -5,6 +5,7 @@ import * as csvStringify from 'csv-stringify/lib/sync';
 import { EOL } from "os";
 import { ResultSet, Result } from "../common";
 import { toInsertSql, InsertSqlOptions } from "./sqlExport";
+import { isSimpleSelectQuery, buildFilteredSqlQuery, filterRows, ColumnFilter } from "../utils/sqlFilter";
 
 interface InsertQuickPickItem extends QuickPickItem {
     multiValue: boolean;
@@ -15,6 +16,7 @@ interface QueryTabRecord {
     title: string;
     statement: string;
     timestamp: string;
+    queryIndex: number;
     results: any[];
 }
 
@@ -22,6 +24,7 @@ export default class ResultView extends CustomView implements Disposable {
 
     private resultSet?: ResultSet;
     private queryResults: Map<string, ResultSet> = new Map();
+    private originalResults: Map<string, ResultSet> = new Map();
     private queryTabs: QueryTabRecord[] = [];
     private queryCounter: number = 0;
     private msgQueue: Message[];
@@ -32,7 +35,7 @@ export default class ResultView extends CustomView implements Disposable {
         this.msgQueue = [];
     }
 
-    display(resultSet: Promise<ResultSet|undefined>, recordsPerPage: number, position: string = "bottom") {
+    display(resultSet: Promise<ResultSet|undefined>, recordsPerPage: number, position: string = "bottom", queryOptions?: { isView?: boolean }) {
         this.show(this.extensionPath, recordsPerPage, position);
         
         this.msgQueue = [];
@@ -41,26 +44,43 @@ export default class ResultView extends CustomView implements Disposable {
             const results = rs? rs : [];
             this.resultSet = results;
             
-            const queryId = `q_${Date.now()}_${++this.queryCounter}`;
-            this.queryResults.set(queryId, results);
+            const queryIndex = ++this.queryCounter;
+            const queryId = `q_${Date.now()}_${queryIndex}`;
+
+            const originalCopy: ResultSet = results.map(r => ({
+                stmt: r.stmt,
+                header: [...r.header],
+                rows: r.rows.map(row => [...row])
+            }));
+            const workingCopy: ResultSet = results.map(r => ({
+                stmt: r.stmt,
+                header: [...r.header],
+                rows: r.rows.map(row => [...row])
+            }));
+
+            this.originalResults.set(queryId, originalCopy);
+            this.queryResults.set(queryId, workingCopy);
 
             let statement = "";
-            let title = `Query ${this.queryCounter}`;
+            let title = `Query ${queryIndex}`;
             if (results.length > 0 && results[0].stmt) {
                 statement = results[0].stmt;
                 const cleanStmt = statement.replace(/[\r\n\t]+/g, " ").trim();
                 const shortStmt = cleanStmt.length > 25 ? cleanStmt.substring(0, 25) + "…" : cleanStmt;
-                title = `#${this.queryCounter}: ${shortStmt}`;
+                title = `#${queryIndex}: ${shortStmt}`;
             }
 
             const now = new Date();
             const pad = (n: number) => ("0" + n).slice(-2);
             const timestamp = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
+            const isView = queryOptions && queryOptions.isView;
             const resultsData = results.map((result, idx) => ({
+                id: idx,
                 statement: result.stmt,
                 columns: result.header,
                 size: result.rows.length,
+                canFilter: isSimpleSelectQuery(result.stmt, isView),
                 rows: {
                     rows: result.rows.slice(0, recordsPerPage),
                     offset: 0,
@@ -75,6 +95,7 @@ export default class ResultView extends CustomView implements Disposable {
                 title,
                 statement,
                 timestamp,
+                queryIndex,
                 results: resultsData
             };
             this.queryTabs.push(tabRecord);
@@ -106,10 +127,57 @@ export default class ResultView extends CustomView implements Disposable {
             return;
         }
 
+        if (message.type === "OPEN_SETTINGS") {
+            commands.executeCommand("workbench.action.openSettings", "@ext:alexcvzz.vscode-sqlite");
+            return;
+        }
+
+        if (message.type === "APPLY_FILTER") {
+            const queryId = message.payload && message.payload.queryId;
+            const resultIdx = (message.payload && message.payload.result) || 0;
+            const filters: ColumnFilter[] = (message.payload && message.payload.filters) || [];
+
+            const origResults = this.originalResults.get(queryId);
+            const targetResults = this.queryResults.get(queryId);
+            const tabRecord = this.queryTabs.find(t => t.queryId === queryId);
+
+            if (origResults && origResults[resultIdx] && targetResults && targetResults[resultIdx] && tabRecord) {
+                const origResult = origResults[resultIdx];
+                const filteredRows = filterRows(origResult.rows, origResult.header, filters);
+                const updatedStmt = buildFilteredSqlQuery(origResult.stmt, filters);
+
+                targetResults[resultIdx].rows = filteredRows;
+                targetResults[resultIdx].stmt = updatedStmt;
+                tabRecord.statement = updatedStmt;
+
+                const cleanStmt = updatedStmt.replace(/[\r\n\t]+/g, " ").trim();
+                const shortStmt = cleanStmt.length > 25 ? cleanStmt.substring(0, 25) + "…" : cleanStmt;
+                tabRecord.title = `#${tabRecord.queryIndex}: ${shortStmt}`;
+
+                const currentLimit = (tabRecord.results[resultIdx] && tabRecord.results[resultIdx].rows && tabRecord.results[resultIdx].rows.limit) || 20;
+
+                this.send({
+                    type: "UPDATE_FILTER_RESULTS",
+                    payload: {
+                        queryId,
+                        result: resultIdx,
+                        statement: updatedStmt,
+                        size: filteredRows.length,
+                        rows: filteredRows.slice(0, currentLimit),
+                        offset: 0,
+                        limit: currentLimit,
+                        filters
+                    }
+                });
+            }
+            return;
+        }
+
         if (message.type === "CLOSE_QUERY") {
             const qId = message.payload && message.payload.queryId;
             if (qId) {
                 this.queryResults.delete(qId);
+                this.originalResults.delete(qId);
                 this.queryTabs = this.queryTabs.filter(t => t.queryId !== qId);
             }
             return;
@@ -117,6 +185,7 @@ export default class ResultView extends CustomView implements Disposable {
 
         if (message.type === "CLEAR_ALL_QUERIES") {
             this.queryResults.clear();
+            this.originalResults.clear();
             this.queryTabs = [];
             this.resultSet = undefined;
             return;

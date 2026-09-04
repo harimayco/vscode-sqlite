@@ -212,6 +212,16 @@ describe("ResultView Export & Display", () => {
         expect(vscode.window.setStatusBarMessage).toHaveBeenCalledWith("SQLite: Records per page set to 100", 3000);
     });
 
+    test("opens extension settings on OPEN_SETTINGS message", () => {
+        (vscode.commands.executeCommand as jest.Mock) = jest.fn();
+
+        (resultView as any).handleMessage({
+            type: "OPEN_SETTINGS"
+        });
+
+        expect(vscode.commands.executeCommand).toHaveBeenCalledWith("workbench.action.openSettings", "@ext:alexcvzz.vscode-sqlite");
+    });
+
     test("resolves WebviewView and handles pending render", () => {
         const mockWebviewView: any = {
             webview: {
@@ -308,6 +318,47 @@ describe("ResultView Export & Display", () => {
         });
         expect((resultView as any).queryResults.size).toBe(0);
         expect((resultView as any).queryTabs.length).toBe(0);
+    });
+
+    test("handles APPLY_FILTER message and updates filtered results and query statement", async () => {
+        const mockSend = jest.fn();
+        (resultView as any).send = mockSend;
+        (resultView as any).show = jest.fn();
+
+        const rs: Result[] = [{
+            stmt: "SELECT * FROM users;",
+            header: ["id", "name", "age"],
+            rows: [["1", "Alice", "25"], ["2", "Bob", "30"], ["3", "Charlie", "35"]]
+        }];
+
+        resultView.display(Promise.resolve(rs), 50, "bottom");
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        const qId = mockSend.mock.calls[0][0].payload.queryId;
+
+        // Apply filter: name contains 'li'
+        (resultView as any).handleMessage({
+            type: "APPLY_FILTER",
+            payload: {
+                queryId: qId,
+                result: 0,
+                filters: [{ column: "name", operator: "contains", value: "li" }]
+            }
+        });
+
+        expect(mockSend).toHaveBeenCalledWith({
+            type: "UPDATE_FILTER_RESULTS",
+            payload: {
+                queryId: qId,
+                result: 0,
+                statement: "SELECT * FROM users WHERE name LIKE '%li%';",
+                size: 2,
+                rows: [["1", "Alice", "25"], ["3", "Charlie", "35"]],
+                offset: 0,
+                limit: 50,
+                filters: [{ column: "name", operator: "contains", value: "li" }]
+            }
+        });
     });
 });
 
