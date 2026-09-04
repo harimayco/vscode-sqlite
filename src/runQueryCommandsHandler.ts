@@ -1,4 +1,4 @@
-import { commands, ExtensionContext, Position, Range } from "vscode";
+import { commands, ExtensionContext, languages, Position, Range } from "vscode";
 import { Activatable } from "./activatable";
 import { Commands } from "./commands";
 import { Schema } from "./common";
@@ -56,6 +56,11 @@ export class RunQueryCommandsHandler
     activate(extensionContext: ExtensionContext): void {
         extensionContext.subscriptions.push(
             commands.registerCommand(
+                Commands.runQuery,
+                this.onRunQuery,
+                this
+            ),
+            commands.registerCommand(
                 Commands.runDocumentQuery,
                 this.onRunDocumentQuery,
                 this
@@ -87,6 +92,45 @@ export class RunQueryCommandsHandler
         //
     }
 
+    private onRunQuery() {
+        const sqlDocument = getEditorSqlDocument();
+        if (!sqlDocument) return;
+        const dbPath = this.sqlWorkspace.getDocumentDatabase(sqlDocument);
+        if (dbPath) {
+            if (
+                sqlDocument.isUntitled &&
+                sqlDocument.languageId !== "sqlite" &&
+                sqlDocument.languageId !== "sql"
+            ) {
+                languages.setTextDocumentLanguage(sqlDocument, "sqlite");
+            }
+            const selection = getEditorSelection();
+            let query = "";
+            if (selection && !selection.isEmpty) {
+                query = sqlDocument.getText(selection);
+            } else {
+                query = sqlDocument.getText();
+            }
+            if (query.trim() !== "") {
+                this.runQuery(dbPath, query);
+            } else {
+                let message = `No query to run.`;
+                showErrorMessage(message, {
+                    title: "Show output",
+                    command: Commands.showOutputChannel,
+                });
+            }
+        } else {
+            commands
+                .executeCommand(Commands.useDatabase)
+                .then((selectedDb) => {
+                    if (selectedDb) {
+                        this.onRunQuery();
+                    }
+                });
+        }
+    }
+
     private onRunDocumentQuery() {
         const sqlDocument = getEditorSqlDocument();
         if (!sqlDocument) return;
@@ -97,7 +141,11 @@ export class RunQueryCommandsHandler
         } else {
             commands
                 .executeCommand(Commands.useDatabase)
-                .then(() => this.onRunDocumentQuery());
+                .then((selectedDb) => {
+                    if (selectedDb) {
+                        this.onRunDocumentQuery();
+                    }
+                });
         }
     }
 
@@ -147,7 +195,11 @@ export class RunQueryCommandsHandler
         } else {
             commands
                 .executeCommand(Commands.useDatabase)
-                .then(() => this.onRunSelectedQuery());
+                .then((selectedDb) => {
+                    if (selectedDb) {
+                        this.onRunSelectedQuery();
+                    }
+                });
         }
     }
 

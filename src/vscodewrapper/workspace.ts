@@ -20,7 +20,8 @@ export function createSqlDocument(content: string, cursorPos: Position = POSITIO
 export function getEditorSqlDocument(): TextDocument | undefined {
     let editor = window.activeTextEditor;
     if (editor) {
-        return editor.document.languageId === 'sql' || editor.document.languageId === 'sqlite'? editor.document : undefined;
+        let langId = editor.document.languageId;
+        return langId === 'sql' || langId === 'sqlite' || editor.document.isUntitled ? editor.document : undefined;
     } else {
         return undefined;
     }
