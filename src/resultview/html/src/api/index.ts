@@ -33,10 +33,17 @@ export class Api {
         });
     }
 
-    exportResults(format: "csv" | "html" | "json" | "sql" | string, result?: number) {
+    exportResults(format: "csv" | "html" | "json" | "sql" | string, result?: number, rows?: (string | number)[][]) {
         this.vscodeApi.postMessage({
             type: "EXPORT_RESULTS",
-            payload: { result, format },
+            payload: { result, format, rows },
+        });
+    }
+
+    copyToClipboard(text: string) {
+        this.vscodeApi.postMessage({
+            type: "COPY_TO_CLIPBOARD",
+            payload: { text },
         });
     }
 

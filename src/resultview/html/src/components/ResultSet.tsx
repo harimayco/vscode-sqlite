@@ -4,8 +4,9 @@ import ResultSetHeader from "./ResultSetHeader";
 import { ResultSetData } from "../api";
 
 interface Props  extends ResultSetData {
-    onExport: (format: string) => void;
+    onExport: (format: string, rows?: (string | number)[][]) => void;
     onRows: (offset: number, limit: number) => void;
+    onCopy?: (text: string) => void;
 }
 
 interface State {
@@ -36,6 +37,8 @@ class ResultSet extends React.Component<Props, State> {
                         offset={this.props.rows.offset}
                         columns={this.props.columns}
                         rows={this.props.rows.rows}
+                        onExportSelected={(format, rows) => this.props.onExport(format, rows)}
+                        onCopy={this.props.onCopy}
                     />
                 </Hideable>
             </div>

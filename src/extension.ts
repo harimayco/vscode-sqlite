@@ -1,6 +1,6 @@
 "use strict";
 
-import { ExtensionContext, commands, workspace } from "vscode";
+import { ExtensionContext, commands, workspace, window } from "vscode";
 import { logger } from "./logging/logger";
 import { getConfiguration, Configuration } from "./configuration";
 import { Constants } from "./constants/constants";
@@ -73,7 +73,12 @@ export function activate(extensionContext: ExtensionContext): Promise<boolean> {
         sqlWorkspace,
         sqlite,
         explorer,
-        resultView
+        resultView,
+        window.registerWebviewViewProvider("sqlite.resultView", resultView, {
+            webviewOptions: {
+                retainContextWhenHidden: true
+            }
+        })
     );
 
     activatables.push(

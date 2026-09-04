@@ -1,4 +1,4 @@
-import { Disposable, workspace, window, ViewColumn, commands, QuickPickItem } from "vscode";
+import { Disposable, workspace, window, ViewColumn, commands, QuickPickItem, env } from "vscode";
 import { CustomView, Message } from "./customview";
 import { sanitizeStringForHtml } from "../utils/utils";
 import * as csvStringify from 'csv-stringify/lib/sync';
@@ -16,12 +16,12 @@ export default class ResultView extends CustomView implements Disposable {
     private msgQueue: Message[];
 
     constructor(private extensionPath: string) {
-        super('resultview', 'SQLite');
+        super('resultview', 'SQLite', extensionPath);
 
         this.msgQueue = [];
     }
 
-    display(resultSet: Promise<ResultSet|undefined>, recordsPerPage: number, position: string = "beside") {
+    display(resultSet: Promise<ResultSet|undefined>, recordsPerPage: number, position: string = "bottom") {
         this.show(this.extensionPath, recordsPerPage, position);
         
         this.msgQueue = [];
@@ -37,6 +37,15 @@ export default class ResultView extends CustomView implements Disposable {
     }
 
     handleMessage(message: Message) {
+        if (message.type === "COPY_TO_CLIPBOARD") {
+            const text = message.payload.text;
+            if (text) {
+                env.clipboard.writeText(text);
+                window.setStatusBarMessage("Copied to clipboard.", 2000);
+            }
+            return;
+        }
+
         if (!this.resultSet) {
             this.msgQueue.push(message);
             return;
@@ -61,11 +70,18 @@ export default class ResultView extends CustomView implements Disposable {
                 if (!obj) {
                     break;
                 }
+                let targetObj = obj;
+                if (message.payload.rows && !Array.isArray(obj)) {
+                    targetObj = {
+                        ...obj,
+                        rows: message.payload.rows
+                    };
+                }
                 const format = message.payload.format;
-                if (format === "csv") this.exportCsv(obj);
-                if (format === "html") this.exportHtml(obj);
-                if (format === "json") this.exportJson(obj);
-                if (format === "sql") this.exportSql(obj);
+                if (format === "csv") this.exportCsv(targetObj);
+                if (format === "html") this.exportHtml(targetObj);
+                if (format === "json") this.exportJson(targetObj);
+                if (format === "sql") this.exportSql(targetObj);
                 break;
             }
         }

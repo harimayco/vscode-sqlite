@@ -25,7 +25,8 @@
         "onCommand:sqlite.newQuery",
         "onCommand:sqlite.quickQuery",
         "onCommand:sqlite.useDatabase",
-        "onCommand:sqlite.runDocumentQuery"
+        "onCommand:sqlite.runDocumentQuery",
+        "onView:sqlite.resultView"
     ],
     "main": "./dist/extension",
     "contributes": {
@@ -144,6 +145,15 @@
                 "when": "editorLangId =~ /(sql|sqlite)/"
             }
         ],
+        "viewsContainers": {
+            "panel": [
+                {
+                    "id": "sqlite-panel",
+                    "title": "SQLite",
+                    "icon": "resources/dark/database.svg"
+                }
+            ]
+        },
         "views": {
             "explorer": [
                 {
@@ -151,6 +161,13 @@
                     "name": "SQLite Explorer",
                     "when": "sqlite.explorer.show",
                     "icon": "resources/dark/database.svg"
+                }
+            ],
+            "sqlite-panel": [
+                {
+                    "type": "webview",
+                    "id": "sqlite.resultView",
+                    "name": "SQLite Results"
                 }
             ]
         },
@@ -449,12 +466,12 @@
                 "sqlite.resultViewPosition": {
                     "type": "string",
                     "enum": [
-                        "beside",
                         "bottom",
+                        "beside",
                         "current"
                     ],
-                    "default": "beside",
-                    "description": "Where to display the SQLite Result View: 'beside' (side editor group), 'bottom' (bottom editor group), or 'current' (active editor group)."
+                    "default": "bottom",
+                    "description": "Where to display the SQLite Result View: 'bottom' (native bottom panel alongside Terminal), 'beside' (side editor group), or 'current' (active editor group)."
                 }
             }
         }

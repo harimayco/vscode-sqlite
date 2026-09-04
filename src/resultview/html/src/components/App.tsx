@@ -47,13 +47,18 @@ class App extends React.Component<Props, State> {
                     list={this.state.results}
                     onExport={this.handleExport.bind(this)}
                     onRows={this.handleRows.bind(this)}
+                    onCopy={this.handleCopy.bind(this)}
                 />
             </div>
         );
     }
 
-    private handleExport(format: string, index?: number) {
-        this.props.api.exportResults(format, index);
+    private handleExport(format: string, index?: number, rows?: (string | number)[][]) {
+        this.props.api.exportResults(format, index, rows);
+    }
+
+    private handleCopy(text: string) {
+        this.props.api.copyToClipboard(text);
     }
 
     private handleRows(offset: number, limit: number, index: number) {

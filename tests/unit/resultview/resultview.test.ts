@@ -150,4 +150,68 @@ describe("ResultView Export & Display", () => {
         await new Promise(resolve => setTimeout(resolve, 50));
         expect(vscode.workspace.openTextDocument).not.toHaveBeenCalled();
     });
+
+    test("exports only selected rows when rows array is provided in payload", async () => {
+        const mockResult: Result = {
+            stmt: "SELECT * FROM users;",
+            header: ["id", "name"],
+            rows: [["1", "Alice"], ["2", "Bob"], ["3", "Charlie"]]
+        };
+        (resultView as any).resultSet = [mockResult];
+
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+            get: jest.fn((key: string, defaultVal: any) => {
+                if (key === "insertExportStyle") return "single";
+                if (key === "insertExportBatchSize") return 500;
+                return defaultVal;
+            })
+        });
+
+        // Only export Bob (row 2)
+        (resultView as any).handleMessage({
+            type: "EXPORT_RESULTS",
+            payload: { result: 0, format: "sql", rows: [["2", "Bob"]] }
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(1);
+        const openArgs = (vscode.workspace.openTextDocument as jest.Mock).mock.calls[0][0];
+        expect(openArgs.content).toContain("INSERT INTO users (id, name) VALUES (2, 'Bob');");
+        expect(openArgs.content).not.toContain("Alice");
+        expect(openArgs.content).not.toContain("Charlie");
+    });
+
+    test("copies text to clipboard and shows status message on COPY_TO_CLIPBOARD message", () => {
+        (vscode.env.clipboard.writeText as jest.Mock) = jest.fn();
+        (vscode.window.setStatusBarMessage as jest.Mock) = jest.fn();
+
+        (resultView as any).handleMessage({
+            type: "COPY_TO_CLIPBOARD",
+            payload: { text: "1\tAlice\n2\tBob" }
+        });
+
+        expect(vscode.env.clipboard.writeText).toHaveBeenCalledWith("1\tAlice\n2\tBob");
+        expect(vscode.window.setStatusBarMessage).toHaveBeenCalledWith("Copied to clipboard.", 2000);
+    });
+
+    test("resolves WebviewView and handles pending render", () => {
+        const mockWebviewView: any = {
+            webview: {
+                options: {},
+                onDidReceiveMessage: jest.fn(),
+                asWebviewUri: jest.fn((uri: any) => uri)
+            },
+            show: jest.fn(),
+            onDidDispose: jest.fn()
+        };
+
+        resultView.show("/test/path", 50, "bottom");
+
+        resultView.resolveWebviewView(mockWebviewView, {} as any, {} as any);
+
+        expect(mockWebviewView.webview.onDidReceiveMessage).toHaveBeenCalled();
+        expect(mockWebviewView.show).toHaveBeenCalledWith(true);
+        expect(mockWebviewView.webview.html).toContain("const RECORDS_PER_PAGE=50");
+    });
 });
